@@ -19,6 +19,18 @@ export function clearCategoriesCache() {
   cache.categories = null;
 }
 
+// Simple hash function for passwords (in production, use bcrypt)
+function hashPassword(password) {
+  // This is a basic hash - in production use proper bcrypt
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return 'hash_' + Math.abs(hash).toString(16);
+}
+
 // ==================== DEFAULT ADMIN SETUP ====================
 // Creates default admin user if no users exist in the database
 
@@ -31,24 +43,36 @@ const DEFAULT_ADMIN = {
 
 export async function ensureDefaultAdmin() {
   try {
+    // Force refresh users from Firestore (bypass cache)
+    invalidate('users');
     const users = await getUsers();
+    
+    console.log('🔍 Checking for admin user. Total users:', users.lengthirestore (bypass cache)
+    invalidate('users');
+    const users = await getUsers();
+    
+    console.log('🔍 Checking for admin user. Total users:', users.length);
     
     // Check if admin user already exists
     const adminExists = users.some(u => u.username === DEFAULT_ADMIN.username);
     
     if (!adminExists) {
       console.log('🔧 Creating default admin user...');
-      await createUser({
-        username: DEFAULT_ADMIN.username,
-        password: DEFAULT_ADMIN.password,
-        full_name: DEFAULT_ADMIN.full_name,
-        role: DEFAULT_ADMIN.role
+      // Create admin directly using addDoc to avoid circular dependency
+      const ref = await addDoc(collection(db, 'users'), {
+        username: DEFAULT_ADMIN.username.toLowerCase().trim(),
+        password: hashPassword(DEFAULT_ADMIN.password),
+        full_name: DEFAULT_ADMIN.full_name.trim(),
+        role: DEFAULT_ADMIN.role,
+        created_at: serverTimestamp()
       });
-      console.log('✅ Default admin user created successfully');
+      console.log('✅ Default admin user created successfully with ID:', ref.id);
       console.log('   Username: admin');
       console.log('   Password: admin123');
       // Invalidate cache to include new admin
       invalidate('users');
+    } else {
+      console.log('✅ Admin user already exists');
     }
   } catch (error) {
     console.error('❌ Error creating default admin:', error);
@@ -130,18 +154,6 @@ export async function getCandidate(id) {
 
 // ==================== WRITE OPERATIONS (invalidate cache) ====================
 
-// Simple hash function for passwords (in production, use bcrypt)
-function hashPassword(password) {
-  // This is a basic hash - in production use proper bcrypt
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return 'hash_' + Math.abs(hash).toString(16);
-}
-
 export async function createUser(data) {
   const ref = await addDoc(collection(db, 'users'), {
     username: data.username.toLowerCase().trim(),
@@ -167,9 +179,29 @@ export async function updateUser(id, data) {
 // Validate user credentials with hashed password
 export async function validateUser(username, password) {
   const users = await getUsers();
+  console.log('👥 Total users in DB:', users.length);
+  console.log('👥 Users:', users.map(u => ({ username: u.username, role: u.role })));
+  
   const user = users.find(u => u.username === username.toLowerCase().trim());
-  if (!user) return null;
-  if (user.password !== hashPassword(password)) return null;
+  if (!user) {
+    console.log('❌ User not found:', username);
+    return null;
+  }
+  
+  const hashedInput = hashPassword(password);
+  console.log('🔑 Password check:', { 
+    input: password, 
+    hashedInput: hashedInput, 
+    storedHash: user.password,
+    match: user.password === hashedInput 
+  });
+  
+  if (user.password !== hashedInput) {
+    console.log('❌ Password mismatch');
+    return null;
+  }
+  
+  console.log('✅ User validated:', user.username);
   return user;
 }
 

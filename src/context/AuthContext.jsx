@@ -42,8 +42,13 @@ export function AuthProvider({ children }) {
     // Sanitasi input
     const sanitizedUsername = username.toLowerCase().trim();
     
+    console.log('🔐 Login attempt:', { username: sanitizedUsername, passwordLength: password.length });
+    
     // Gunakan validateUser dengan password hashing
     const u = await validateUser(sanitizedUsername, password);
+    
+    console.log('🔍 Validate result:', u ? 'User found' : 'User not found or password mismatch');
+    
     if (!u) throw new Error('Username atau password salah');
     
     const userData = { id: u.id, username: u.username, full_name: u.full_name, role: u.role };
