@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html><head><title>Sync Firebase Data</title>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getFirestore, collection, getDocs, writeBatch, doc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyB4oCu_FSEb3CkEopfPgbcsrOEkgsO0IYY",
+  authDomain: "rekrutment-75ef9.firebaseapp.com",
+  projectId: "rekrutment-75ef9",
+  storageBucket: "rekrutment-75ef9.firebasestorage.app",
+  messagingSenderId: "1090855486348",
+  appId: "1:1090855486348:web:0bd354505d45f6e8f74ca9",
+});
+const db = getFirestore(app);
+const log = (m) => { document.getElementById('log').innerHTML += m + '<br>'; console.log(m); };
+
+async function deleteAll(colName) {
+  const snap = await getDocs(collection(db, colName));
+  if (snap.empty) return 0;
+  for (let i = 0; i < snap.docs.length; i += 450) {
+    const batch = writeBatch(db);
+    snap.docs.slice(i, i + 450).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return snap.size;
+}
+
+window.runSync = async function() {
+  document.getElementById('btn').disabled = true;
+  document.getElementById('btn').textContent = 'Syncing...';
+  log('🚀 Starting full data sync...');
+
+  // STEP 1: Delete ALL existing data
+  log('');
+  log('🗑️ Deleting all existing data...');
+  let d1 = await deleteAll('assessments'); log(`   assessments: ${d1} deleted`);
+  let d2 = await deleteAll('candidates'); log(`   candidates: ${d2} deleted`);
+  let d3 = await deleteAll('categories'); log(`   categories: ${d3} deleted`);
+  let d4 = await deleteAll('users'); log(`   users: ${d4} deleted`);
+
+  // STEP 2: Create Users
+  log('');
+  log('👤 Creating users...');
+  const batch1 = writeBatch(db);
+  const users = {
+    admin:   { username:'admin', password:'admin123', full_name:'Administrator', role:'admin' },
+    hr:      { username:'hr', password:'hr123', full_name:'Anggy Permana Putra', role:'hr' },
+    user_djp:{ username:'urip', password:'user123', full_name:'Urip Mukhtar', role:'user' },
+    user_gas:{ username:'usergas', password:'user123', full_name:'User GAS', role:'user' },
+    manager: { username:'manager', password:'manager123', full_name:'Manager Operasi', role:'manager' },
+  };
+  const uRefs = {};
+  for (const [key, u] of Object.entries(users)) {
+    const ref = doc(collection(db, 'users'));
+    batch1.set(ref, { ...u, created_at: new Date() });
+    uRefs[key] = ref.id;
+    log(`   ✅ ${u.full_name} (${u.role}) → ${ref.id}`);
+  }
+  await batch1.commit();
+
+  // STEP 3: Create Categories (20 items from Excel)
+  log('');
+  log('📋 Creating categories...');
+  const cats = [
+    { kode:'A100', kategori_utama:'A', nama_kategori:'PENGALAMAN', sub_kategori:'Pengalaman di dalam Daniswara Group', pertanyaan:'Apakah ada Pengalaman di Daniswara Group? Bagaimana pandangan anda terkait Daniswara Group?', bobot:0.06, tipe:'check', order_num:1 },
+    { kode:'A200', kategori_utama:'A', nama_kategori:'PENGALAMAN', sub_kategori:'Pengalaman di luar Daniswara Group', pertanyaan:'Jika tidak, apakah sudah ada pengalaman sejenis di luar Daniswara?', bobot:0.04, tipe:'check', order_num:2 },
+    { kode:'B100', kategori_utama:'B', nama_kategori:'ADMINISTRASI', sub_kategori:'Identitas (KTP & KK)', pertanyaan:'Apakah ada Identitas Diri KTP & KK?', bobot:0.01, tipe:'check', order_num:3 },
+    { kode:'B200', kategori_utama:'B', nama_kategori:'ADMINISTRASI', sub_kategori:'SIM A (utk jabatan di Divisi Operasi)', pertanyaan:'Apakah sudah memiliki SIM A?', bobot:0.02, tipe:'check', order_num:4 },
+    { kode:'B300', kategori_utama:'B', nama_kategori:'ADMINISTRASI', sub_kategori:'SIM C', pertanyaan:'Apakah sudah memiliki SIM C?', bobot:0.01, tipe:'check', order_num:5 },
+    { kode:'B400', kategori_utama:'B', nama_kategori:'ADMINISTRASI', sub_kategori:'NPWP', pertanyaan:'Apakah sudah Memiliki NPWP?', bobot:0.01, tipe:'check', order_num:6 },
+    { kode:'C110', kategori_utama:'C', nama_kategori:'HARD SKILL', sub_kategori:'Skill Mengemudi', pertanyaan:'Coba ceritakan pengalaman/keahlian dalam mengemudi mobil angkut/logistik?', bobot:0.15, tipe:'rating', order_num:7 },
+    { kode:'C120', kategori_utama:'C', nama_kategori:'HARD SKILL', sub_kategori:'Flow Administrasi Logistik', pertanyaan:'Coba ceritakan yang anda ketahui tentang alur administrasi logistik? Dan kaitannya dengan Ms. Office', bobot:0.10, tipe:'rating', order_num:8 },
+    { kode:'C130', kategori_utama:'C', nama_kategori:'HARD SKILL', sub_kategori:'Pengetahuan terkait logistik', pertanyaan:'Ceritakan yang anda ketahui terkait dengan logistik?', bobot:0.025, tipe:'rating', order_num:9 },
+    { kode:'C140', kategori_utama:'C', nama_kategori:'HARD SKILL', sub_kategori:'Pengalaman di Bongkar Muat', pertanyaan:'Apakah memiliki pengalaman terkait bongkar muat? Sedalam apa?', bobot:0.075, tipe:'rating', order_num:10 },
+    { kode:'D110', kategori_utama:'D', nama_kategori:'SOFT SKILL', sub_kategori:'Kepemimpinan', pertanyaan:'Jika terjadi suatu diskusi dalam group/kelompok yang belum menemukan titik temu, apa yang akan anda lakukan?', bobot:0.025, tipe:'rating', order_num:11 },
+    { kode:'D120', kategori_utama:'D', nama_kategori:'SOFT SKILL', sub_kategori:'Komunikasi', pertanyaan:'Bagaimana hubungan kerjasama antar sesama pegawai/organisasi/kelompok?', bobot:0.10, tipe:'rating', order_num:12 },
+    { kode:'D130', kategori_utama:'D', nama_kategori:'SOFT SKILL', sub_kategori:'Patuh pada Peraturan / Commitment', pertanyaan:'Bagaimana pandangan anda terkait perusahaan dan aturan yang dapat berubah ubah sesuai arah perusahaan?', bobot:0.05, tipe:'rating', order_num:13 },
+    { kode:'D140', kategori_utama:'D', nama_kategori:'SOFT SKILL', sub_kategori:'Determinasi thd tekanan', pertanyaan:'Bagaimana pandangan anda jika anda dituntut pada pekerjaan diluar dari waktu normal dalam bekerja?', bobot:0.075, tipe:'rating', order_num:14 },
+    { kode:'E100', kategori_utama:'E', nama_kategori:'PSIKOLOGI INTERVIEW', sub_kategori:'Antusiasme / Keinginan bergabung', pertanyaan:'Apa yang anda pikirkan setelah mendengar/mengetahui Daniswara membutuhkan personil baru di posisi ini?', bobot:0.075, tipe:'rating', order_num:15 },
+    { kode:'E200', kategori_utama:'E', nama_kategori:'PSIKOLOGI INTERVIEW', sub_kategori:'Inisiatif', pertanyaan:'Jika ada hal-hal yang kiranya belum diatur oleh perusahaan atau belum dapat arahan oleh atasan, apa yang biasanya anda lakukan?', bobot:0.05, tipe:'rating', order_num:16 },
+    { kode:'E300', kategori_utama:'E', nama_kategori:'PSIKOLOGI INTERVIEW', sub_kategori:'Adaptif', pertanyaan:'Coba ceritakan pengalaman anda terkait dengan berada dalam lingkungan yang baru/hal yang baru?', bobot:0.025, tipe:'rating', order_num:17 },
+    { kode:'F100', kategori_utama:'F', nama_kategori:'SALARY & PROSPEKTUS KARIR', sub_kategori:'Ekspektasi Salary', pertanyaan:'Menurut anda, berapa ekspektasi salary/gaji yang anda inginkan? Bagaimana jika perusahaan belum memenuhinya?', bobot:0.04, tipe:'rating', order_num:18 },
+    { kode:'F200', kategori_utama:'F', nama_kategori:'SALARY & PROSPEKTUS KARIR', sub_kategori:'Tujuan Karir', pertanyaan:'Sejauh yang anda tahu tentang Daniswara, apa tujuan anda berkarir/berkarya bersama Daniswara?', bobot:0.01, tipe:'rating', order_num:19 },
+    { kode:'G100', kategori_utama:'G', nama_kategori:'ADD USER QUESTION', sub_kategori:'Pertanyaan Spesifik User', pertanyaan:'Pertanyaan tambahan dari user/interviewer', bobot:0.05, tipe:'rating', order_num:20 },
+  ];
+  const batch2 = writeBatch(db);
+  const cRefs = {};
+  for (const c of cats) {
+    const ref = doc(collection(db, 'categories'));
+    batch2.set(ref, c);
+    cRefs[c.kode] = ref.id;
+  }
+  await batch2.commit();
+  log(`   ✅ ${cats.length} categories created`);
+
+  // STEP 4: Create Candidates
+  log('');
+  log('🧑 Creating candidates...');
+  const cands = [
+    { nama:'DIAN YUSUF', posisi:'STAFF OPERASI', penempatan:'DKI - JABODETABEK', divisi:'OPERASI', budget_salary:'RANGE 2,8 - 3 JT', status:'Lulus', catatan:'SIM A & C Belum ada' },
+    { nama:'DENY FERDIANSYAH', posisi:'STAFF OPERASI', penempatan:'IKN - KALIMANTAN TIMUR', divisi:'OPERASI', budget_salary:'RANGE 4 JT - 4,8 JT (ALL IN - IKN)', status:'Lulus', catatan:'SIM A Belum ada' },
+    { nama:'IMAN', posisi:'STAFF OPERASI', penempatan:'IKN - KALIMANTAN TIMUR', divisi:'OPERASI', budget_salary:'RANGE 4 JT - 4,8 JT (ALL IN - IKN)', status:'Lulus', catatan:'SIM C Belum ada' },
+    { nama:'TAUFIK HIDAYATULLAH', posisi:'STAFF OPERASI', penempatan:'IKN - KALIMANTAN TIMUR', divisi:'OPERASI', budget_salary:'RANGE 4 JT - 4,8 JT (ALL IN - IKN)', status:'Lulus', catatan:'SIM A Belum ada' },
+    { nama:'SADAM', posisi:'STAFF OPERASI', penempatan:'IKN - KALIMANTAN TIMUR', divisi:'OPERASI', budget_salary:'RANGE 4 JT - 4,8 JT (ALL IN - IKN)', status:'Tidak Lulus', catatan:'' },
+  ];
+  const batch3 = writeBatch(db);
+  const candRefs = {};
+  for (const c of cands) {
+    const ref = doc(collection(db, 'candidates'));
+    batch3.set(ref, { ...c, created_at: new Date() });
+    candRefs[c.nama] = ref.id;
+    log(`   ✅ ${c.nama} (${c.status})`);
+  }
+  await batch3.commit();
+
+  // STEP 5: Create Assessments — EXACT scores from Excel
+  // Keys: [A100,A200,B100,B200,B300,B400,C110,C120,C130,C140,D110,D120,D130,D140,E100,E200,E300,F100,F200,G100]
+  log('');
+  log('📊 Creating assessments (exact Excel scores)...');
+
+  const catOrder = ['A100','A200','B100','B200','B300','B400','C110','C120','C130','C140','D110','D120','D130','D140','E100','E200','E300','F100','F200','G100'];
+
+  // DIAN YUSUF: HR=90.5, USER-DJP=88, MANAGER=75.7 → avg=86.23 (no USER-GAS)
+  const scores = {
+    'DIAN YUSUF': {
+      hr:      [6,0, 1,2,1,0, 15,8,2.5,7.5, 2.5,10,4,7.5, 6,5,2.5, 4,1, 5],
+      user_djp:[6,0, 1,2,1,0, 15,10,2.5,7.5, 2.5,10,4,7.5, 6,4,2, 2.4,0.6, 4],
+      manager: [6,0, 1,0,0,0, 15,8,2.5,7.5, 2,8,3,6, 7.5,5,2, 1.6,0.6, 0],
+    },
+    // DENY: HR=88, USER-DJP=86, USER-GAS=83, MANAGER=77 → avg=84.75
+    'DENY FERDIANSYAH': {
+      hr:      [6,0, 1,2,1,1, 9,8,2.5,7.5, 2.5,10,5,7.5, 7.5,5,2.5, 4,1, 5],
+      user_djp:[6,0, 1,2,1,1, 9,8,2,6, 2.5,10,5,7.5, 7.5,5,2.5, 4,1, 5],
+      user_gas:[6,0, 1,0,1,1, 12,8,2,6, 2.5,10,5,6, 6,5,2.5, 3.2,0.8, 5],
+      manager: [6,4, 1,0,1,1, 6,8,2.5,6, 2.5,10,4,7.5, 6,5,2.5, 3.2,0.8, 0],
+    },
+    // IMAN: HR=79.7, USER-DJP=81.9, USER-GAS=78.6, MANAGER=67.2 → avg=77.93
+    'IMAN': {
+      hr:      [0,4, 1,2,0,1, 15,6,2,7.5, 1,8,4,7.5, 7.5,2,2, 3.2,1, 5],
+      user_djp:[0,4, 1,2,0,1, 15,8,2.5,7.5, 1,8,4,7.5, 7.5,3,2.5, 2.4,1, 4],
+      user_gas:[0,4, 1,2,0,1, 15,8,2,7.5, 1,8,4,6, 7.5,4,2, 1.6,0, 4],
+      manager: [0,4, 1,2,0,1, 15,8,2.5,7.5, 0.5,6,3,6, 4.5,2,2, 1.6,0.6, 0],
+    },
+    // TAUFIK: HR=91, USER-DJP=70, USER-GAS=81.5, MANAGER=64.3 → avg=77.62
+    'TAUFIK HIDAYATULLAH': {
+      hr:      [6,0, 1,2,1,1, 15,8,2.5,7.5, 2,10,5,7.5, 7.5,4,2, 4,1, 5],
+      user_djp:[6,0, 1,2,1,1, 12,6,2.5,7.5, 0.5,6,4,6, 6,1,1.5, 2.4,0.6, 3],
+      user_gas:[6,0, 1,0,1,1, 15,8,2.5,7.5, 1.5,8,4,7.5, 4.5,4,2, 3.2,0.8, 4],
+      manager: [6,0, 1,0,1,1, 15,6,2,6, 1,6,3,6, 3,2,1.5, 3.2,0.6, 0],
+    },
+    // SADAM: HR=48.7, USER-DJP=57.5, USER-GAS=59, MANAGER=60.9 → avg=57.53
+    'SADAM': {
+      hr:      [0,0, 1,2,1,1, 6,4,1,3, 1,6,4,3, 4.5,3,2, 1.6,0.6, 4],
+      user_djp:[0,0, 1,2,1,1, 12,4,1.5,4.5, 1.5,6,3,6, 4.5,2,1.5, 1.6,0.4, 4],
+      user_gas:[0,4, 1,2,1,1, 9,4,1,3, 1.5,8,4,3, 4.5,3,2, 2.4,0.6, 4],
+      manager: [0,4, 1,2,1,1, 9,6,1.5,3, 1.5,8,5,6, 4.5,3,1, 2.4,1, 0],
+    },
+  };
+
+  let totalAss = 0;
+  for (const [candName, assessors] of Object.entries(scores)) {
+    const candId = candRefs[candName];
+    for (const [assessorKey, vals] of Object.entries(assessors)) {
+      const assessorId = uRefs[assessorKey];
+      const batch = writeBatch(db);
+      let assessorTotal = 0;
+      for (let i = 0; i < catOrder.length; i++) {
+        const catId = cRefs[catOrder[i]];
+        const nilai = vals[i] || 0;
+        assessorTotal += nilai;
+        const ref = doc(collection(db, 'assessments'));
+        batch.set(ref, {
+          candidate_id: candId,
+          assessor_id: assessorId,
+          category_id: catId,
+          nilai: nilai,
+          check_ada: nilai > 0 && cats[i].tipe === 'check',
+          keterangan: '',
+          created_at: new Date()
+        });
+        totalAss++;
+      }
+      await batch.commit();
+      log(`   ✅ ${candName} ← ${assessorKey} = ${assessorTotal.toFixed(1)}`);
+    }
+  }
+  log(`   Total: ${totalAss} assessment records`);
+
+  // Verify totals
+  log('');
+  log('🔍 Verifying averages...');
+  const expected = {
+    'DIAN YUSUF': 86.23,
+    'DENY FERDIANSYAH': 84.75,
+    'IMAN': 77.93,
+    'TAUFIK HIDAYATULLAH': 77.62,
+    'SADAM': 57.53,
+  };
+  for (const [name, assessors] of Object.entries(scores)) {
+    const totals = Object.values(assessors).map(v => v.reduce((s,x) => s+x, 0));
+    const avg = totals.reduce((s,x) => s+x, 0) / totals.length;
+    const exp = expected[name];
+    const ok = Math.abs(avg - exp) < 1;
+    log(`   ${ok ? '✅' : '⚠️'} ${name}: avg=${avg.toFixed(2)} (expected ~${exp}) [${totals.map(t=>t.toFixed(1)).join(', ')}]`);
+  }
+
+  log('');
+  log('🎉 SYNC COMPLETE! Clear localStorage and refresh your app.');
+  log('   Run this in browser console: localStorage.clear()');
+  document.getElementById('btn').textContent = '✅ Done!';
+};
+</script>
+<style>
+  body { font-family:'Segoe UI',sans-serif; max-width:750px; margin:40px auto; padding:20px; background:#f8fafc; }
+  h1 { color:#1e1b4b; font-size:1.3rem; }
+  #log { background:#1e293b; color:#e2e8f0; padding:20px; border-radius:12px; font-family:monospace; font-size:0.82rem; line-height:1.7; min-height:300px; margin:20px 0; overflow-y:auto; max-height:500px; }
+  button { background:linear-gradient(135deg,#6366f1,#4f46e5); color:white; border:none; padding:14px 32px; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
+  .warn { background:#fef3c7; border:1px solid #f59e0b; border-radius:10px; padding:14px 18px; margin:16px 0; font-size:0.88rem; color:#92400e; }
+</style>
+</head>
+<body>
+  <h1>🔄 Sync Firebase Data — Sesuai Excel</h1>
+  <div class="warn">
+    ⚠️ <strong>PERHATIAN:</strong> Ini akan MENGHAPUS SEMUA data di Firebase dan menggantinya dengan data dari Excel.
+    Pastikan Anda yakin sebelum klik tombol di bawah.
+  </div>
+  <div id="log">Klik tombol untuk mulai sync...</div>
+  <button id="btn" onclick="runSync()">🔄 Sync Data Sekarang</button>
+</body>
+</html>
