@@ -19,6 +19,42 @@ export function clearCategoriesCache() {
   cache.categories = null;
 }
 
+// ==================== DEFAULT ADMIN SETUP ====================
+// Creates default admin user if no users exist in the database
+
+const DEFAULT_ADMIN = {
+  username: 'admin',
+  password: 'admin123',
+  full_name: 'Administrator',
+  role: 'admin'
+};
+
+export async function ensureDefaultAdmin() {
+  try {
+    const users = await getUsers();
+    
+    // Check if admin user already exists
+    const adminExists = users.some(u => u.username === DEFAULT_ADMIN.username);
+    
+    if (!adminExists) {
+      console.log('🔧 Creating default admin user...');
+      await createUser({
+        username: DEFAULT_ADMIN.username,
+        password: DEFAULT_ADMIN.password,
+        full_name: DEFAULT_ADMIN.full_name,
+        role: DEFAULT_ADMIN.role
+      });
+      console.log('✅ Default admin user created successfully');
+      console.log('   Username: admin');
+      console.log('   Password: admin123');
+      // Invalidate cache to include new admin
+      invalidate('users');
+    }
+  } catch (error) {
+    console.error('❌ Error creating default admin:', error);
+  }
+}
+
 // ==================== BULK LOADERS (single query each) ====================
 
 export async function getUsers() {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getUserByUsername, validateUser, preloadAll, fixAllStatuses } from '../services/db';
+import { getUserByUsername, validateUser, preloadAll, fixAllStatuses, ensureDefaultAdmin } from '../services/db';
 
 const AuthContext = createContext(null);
 
@@ -9,6 +9,9 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const init = async () => {
+      // Ensure default admin user exists
+      await ensureDefaultAdmin();
+      
       // Restore session from localStorage
       const saved = localStorage.getItem('recruitment_user');
       if (saved) {
