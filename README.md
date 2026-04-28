@@ -86,6 +86,28 @@ npm run dev
 
 5. Buka browser di `http://localhost:5173`
 
+## 🧪 Testing
+
+Project ini menggunakan **Test-Driven Development (TDD)** dengan Vitest:
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests once
+npm run test:run
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+**Test Coverage**: 45 tests passing
+- ✅ Utility functions (27 tests)
+- ✅ Database functions (18 tests)
+- ✅ 100% coverage for critical business logic
+
+Lihat [TESTING.md](./TESTING.md) untuk panduan lengkap testing.
+
 ## 🔐 Default Admin Account
 
 - **Username**: `admin`
