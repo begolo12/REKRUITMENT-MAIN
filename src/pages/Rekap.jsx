@@ -22,6 +22,12 @@ export default function Rekap() {
     return 'badge b-wait';
   };
 
+  // Helper: Extract first name only
+  const getFirstName = (fullName) => {
+    if (!fullName) return 'Unknown';
+    return fullName.split(' ')[0];
+  };
+
   // Collect all unique role labels
   const allRoles = [...new Set(data.flatMap(c => Object.keys(c.scores_by_role || {})))].sort();
 
@@ -35,7 +41,7 @@ export default function Rekap() {
       let cols = `<td>${i + 1}</td><td style="font-weight:600">${c.nama}</td><td>${c.posisi}</td><td>${c.penempatan}</td>`;
       allRoles.forEach(r => {
         const s = c.scores_by_role?.[r];
-        cols += `<td style="text-align:center">${s ? `${s.score.toFixed(2)}<br><span style="font-size:9px;color:#64748b">${s.name}</span>` : '-'}</td>`;
+        cols += `<td style="text-align:center">${s ? `${s.score.toFixed(2)}<br><span style="font-size:9px;color:#64748b">${getFirstName(s.name)}</span>` : '-'}</td>`;
       });
       const avgColor = c.avg_score >= 70 ? '#166534' : c.avg_score >= 40 ? '#92400e' : '#991b1b';
       const avgBg = c.avg_score >= 70 ? '#dcfce7' : c.avg_score >= 40 ? '#fef3c7' : '#fee2e2';
@@ -156,6 +162,56 @@ export default function Rekap() {
         boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
         border: '1px solid rgba(226, 232, 240, 0.6)'
       }}>
+        <style>{`
+          table { width: 100%; border-collapse: collapse; }
+          thead tr { background: #f8fafc; }
+          th { 
+            padding: 14px 12px; 
+            text-align: left; 
+            font-weight: 600; 
+            color: #475569; 
+            font-size: 0.85rem; 
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+          }
+          th[style*="text-align: center"] { text-align: center; }
+          tbody tr { border-bottom: 1px solid #f1f5f9; }
+          tbody tr:hover { background: #f8fafc; }
+          td { 
+            padding: 14px 12px; 
+            vertical-align: middle;
+            min-height: 60px;
+            display: table-cell;
+          }
+          td[style*="text-align: center"] { text-align: center; }
+          .score { font-weight: 700; font-size: 1rem; }
+          .s-hi { color: #166534; }
+          .s-md { color: #92400e; }
+          .s-lo { color: #991b1b; }
+          .badge { 
+            display: inline-block; 
+            padding: 4px 12px; 
+            border-radius: 6px; 
+            font-size: 0.8rem; 
+            font-weight: 600;
+          }
+          .b-ok { background: #dcfce7; color: #166534; }
+          .b-note { background: #fef3c7; color: #92400e; }
+          .b-no { background: #fee2e2; color: #991b1b; }
+          .b-wait { background: #f3f4f6; color: #6b7280; }
+          .av { 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 8px; 
+            background: linear-gradient(135deg, #6366f1, #8b5cf6); 
+            color: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 700;
+            flex-shrink: 0;
+          }
+        `}</style>
         <div style={{ overflowX: 'auto' }}>
           <table>
             <thead>
@@ -176,39 +232,39 @@ export default function Rekap() {
                 <tr><td colSpan={5 + allRoles.length} style={{ textAlign: 'center', color: '#94a3b8', padding: 40 }}>Belum ada data</td></tr>
               ) : data.map((c, i) => (
                 <tr key={c.id}>
-                  <td>{i + 1}</td>
+                  <td style={{ fontWeight: 600, color: '#475569' }}>{i + 1}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div className="av">{c.nama?.charAt(0)}</div>
                       <div>
-                        <div style={{ fontWeight: 600 }}>{c.nama}</div>
-                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{c.divisi}</div>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.nama}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 2 }}>{c.divisi}</div>
                       </div>
                     </div>
                   </td>
-                  <td>{c.posisi}</td>
-                  <td>{c.penempatan}</td>
+                  <td style={{ color: '#475569' }}>{c.posisi}</td>
+                  <td style={{ color: '#475569' }}>{c.penempatan}</td>
                   {allRoles.map(r => {
                     const s = c.scores_by_role?.[r];
                     return (
                       <td key={r} style={{ textAlign: 'center' }}>
                         {s ? (
-                          <div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                             <span className={`score ${scoreClass(s.score)}`}>{s.score.toFixed(2)}</span>
-                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: 2 }}>{s.name}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{getFirstName(s.name)}</div>
                           </div>
                         ) : (
-                          <span style={{ color: '#cbd5e1' }}>-</span>
+                          <span style={{ color: '#cbd5e1', fontWeight: 500 }}>-</span>
                         )}
                       </td>
                     );
                   })}
                   <td style={{ textAlign: 'center' }}>
-                    <span className={`score ${scoreClass(c.avg_score)}`} style={{ fontSize: '0.9rem', fontWeight: 800 }}>
+                    <span className={`score ${scoreClass(c.avg_score)}`} style={{ fontSize: '1.1rem' }}>
                       {c.avg_score.toFixed(2)}
                     </span>
                   </td>
-                  <td><span className={statusBadge(c.status)}>{c.status}</span></td>
+                  <td><span className={`badge ${statusBadge(c.status).split(' ').slice(1).join(' ')}`}>{c.status}</span></td>
                 </tr>
               ))}
             </tbody>

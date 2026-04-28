@@ -494,10 +494,10 @@ export async function reseedCategories() {
 // 4 penilai menilai 4 kandidat (Deny, Ilham, Dicky, Doni)
 
 const EXCEL_ASSESSORS = [
-  { username: 'anggy', password_plain: 'anggy123', full_name: 'Anggy Permana Putra', role: 'hr' },
-  { username: 'wahyu', password_plain: 'wahyu123', full_name: 'Wahyu M. Pungki', role: 'hr' },
-  { username: 'urip', password_plain: 'urip123', full_name: 'Urip', role: 'hr' },
-  { username: 'muchlis', password_plain: 'muchlis123', full_name: 'Muchlis Arif Santoso', role: 'manager' },
+  { username: 'anggy', password_plain: 'anggy123', full_name: 'Anggy Permana Putra', role: 'Direktur HR' },
+  { username: 'wahyu', password_plain: 'wahyu123', full_name: 'Wahyu M. Pungki', role: 'Direktur GAS' },
+  { username: 'urip', password_plain: 'urip123', full_name: 'Urip', role: 'Direktur DJP' },
+  { username: 'muchlis', password_plain: 'muchlis123', full_name: 'Muchlis Arif Santoso', role: 'Manager Operasi' },
 ];
 
 const EXCEL_CANDIDATES = [
@@ -1199,6 +1199,12 @@ export async function getMyAssessments(userId) {
   }
 }
 
+// Helper: Extract first name only
+function getFirstName(fullName) {
+  if (!fullName) return 'Unknown';
+  return fullName.split(' ')[0];
+}
+
 export async function getRekapData() {
   const { users, candidates, categories, assessments } = await preloadAll();
   const userMap = buildUserMap(users);
@@ -1225,7 +1231,9 @@ export async function getRekapData() {
       const user = userMap[aid];
       let roleLabel = (user?.role || 'user').toUpperCase();
       if (roleLabel === 'USER') { userCount++; roleLabel = `USER-${userCount}`; }
-      scores_by_role[roleLabel] = { name: user?.full_name || 'Unknown', score: total };
+      // Use first name only for display
+      const firstName = getFirstName(user?.full_name || 'Unknown');
+      scores_by_role[roleLabel] = { name: firstName, score: total };
       totalAvg += total;
       count++;
     }
