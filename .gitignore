@@ -17,6 +17,10 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Firebase credentials (SENSITIVE - DO NOT COMMIT)
+*firebase-adminsdk*.json
+rekrutment-*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
