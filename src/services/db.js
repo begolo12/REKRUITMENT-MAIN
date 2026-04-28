@@ -324,8 +324,9 @@ export async function saveAssessments(candidateId, assessorId, items) {
 async function autoUpdateStatus(candidateId) {
   const allAss = await getAllAssessments();
   const users = await getUsers();
+  const cats = await getCategories();
   const userMap = buildUserMap(users);
-  const { avg_score } = calcCandidateScore(candidateId, allAss, userMap);
+  const { avg_score } = calcCandidateScore(candidateId, allAss, userMap, cats);
 
   if (avg_score <= 0) return; // No scores yet
 
@@ -346,7 +347,26 @@ function buildUserMap(users) {
   return m;
 }
 
-function calcCandidateScore(candidateId, allAssessments, userMap) {
+// Rating multiplier sesuai Excel: SK(1)=0.2, K(2)=0.4, R(3)=0.6, B(4)=0.8, SB(5)=1.0
+const RATING_MULTIPLIER = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1.0 };
+
+// Hitung skor per item sesuai rumus Excel:
+// Check: hasil = check_ada ? (bobot * 100) : 0
+// Rating: hasil = bobot * rating_multiplier * 100
+function calcItemScore(assessment, category) {
+  if (!category) return 0;
+  const bobot = category.bobot || 0;
+  
+  if (category.tipe === 'check') {
+    return assessment.check_ada ? (bobot * 100) : 0;
+  } else {
+    const rating = assessment.nilai || 0;
+    const multiplier = RATING_MULTIPLIER[rating] || 0;
+    return bobot * multiplier * 100;
+  }
+}
+
+function calcCandidateScore(candidateId, allAssessments, userMap, allCategories) {
   const candAss = allAssessments.filter(a => a.candidate_id === candidateId);
   const byAssessor = {};
   candAss.forEach(a => {
@@ -354,13 +374,32 @@ function calcCandidateScore(candidateId, allAssessments, userMap) {
     byAssessor[a.assessor_id].push(a);
   });
 
+  // Build category map for bobot lookup
+  const catMap = {};
+  if (allCategories) {
+    allCategories.forEach(c => { catMap[c.id] = c; });
+  }
+
   const scores_by_assessor = [];
   let totalAvg = 0;
   const aids = Object.keys(byAssessor);
 
   for (const aid of aids) {
     const items = byAssessor[aid];
-    const total = Math.round(items.reduce((s, a) => s + (a.nilai || 0), 0) * 100) / 100;
+    let total;
+    
+    if (allCategories && allCategories.length > 0) {
+      // Hitung sesuai rumus Excel: bobot × multiplier × 100
+      total = items.reduce((s, a) => {
+        const cat = catMap[a.category_id];
+        return s + calcItemScore(a, cat);
+      }, 0);
+    } else {
+      // Fallback: langsung jumlahkan nilai (backward compatible)
+      total = items.reduce((s, a) => s + (a.nilai || 0), 0);
+    }
+    
+    total = Math.round(total * 100) / 100;
     scores_by_assessor.push({
       assessor: userMap[aid] || { id: aid, full_name: 'Unknown', role: 'user' },
       total_score: total
@@ -373,17 +412,44 @@ function calcCandidateScore(candidateId, allAssessments, userMap) {
 }
 
 export async function getCandidateWithScores(candidateId) {
-  const [cand, users, allAss] = await Promise.all([
-    getCandidate(candidateId), getUsers(), getAllAssessments()
+  const [cand, users, allAss, cats] = await Promise.all([
+    getCandidate(candidateId), getUsers(), getAllAssessments(), getCategories()
   ]);
   if (!cand) return null;
   const userMap = buildUserMap(users);
-  const scores = calcCandidateScore(candidateId, allAss, userMap);
-  return { ...cand, ...scores };
+  const scores = calcCandidateScore(candidateId, allAss, userMap, cats);
+
+  // Build detailed assessment per assessor with category scores
+  const catMap = {};
+  cats.forEach(c => { catMap[c.id] = c; });
+  
+  const detail_by_assessor = {};
+  const candAss = allAss.filter(a => a.candidate_id === candidateId);
+  
+  candAss.forEach(a => {
+    const assessor = userMap[a.assessor_id] || { id: a.assessor_id, full_name: 'Unknown', role: 'user' };
+    if (!detail_by_assessor[a.assessor_id]) {
+      detail_by_assessor[a.assessor_id] = { assessor, items: [] };
+    }
+    const cat = catMap[a.category_id];
+    detail_by_assessor[a.assessor_id].items.push({
+      ...a,
+      category: cat,
+      score: cat ? calcItemScore(a, cat) : 0
+    });
+  });
+
+  // Sort items by order_num within each assessor
+  Object.values(detail_by_assessor).forEach(d => {
+    d.items.sort((a, b) => (a.category?.order_num || 0) - (b.category?.order_num || 0));
+    d.total = Math.round(d.items.reduce((s, i) => s + i.score, 0) * 100) / 100;
+  });
+
+  return { ...cand, ...scores, detail_by_assessor, categories: cats };
 }
 
 export async function getDashboardData() {
-  const { users, candidates, assessments } = await preloadAll();
+  const { users, candidates, categories, assessments } = await preloadAll();
   const userMap = buildUserMap(users);
 
   const total = candidates.length;
@@ -393,7 +459,7 @@ export async function getDashboardData() {
   const dalam_proses = candidates.filter(c => c.status === 'Dalam Proses').length;
 
   const recent = candidates.slice(0, 5).map(c => {
-    const { avg_score } = calcCandidateScore(c.id, assessments, userMap);
+    const { avg_score } = calcCandidateScore(c.id, assessments, userMap, categories);
     return { ...c, avg_score };
   });
 
@@ -401,26 +467,33 @@ export async function getDashboardData() {
 }
 
 export async function getAllCandidatesWithScores() {
-  const { users, candidates, assessments } = await preloadAll();
+  const { users, candidates, categories, assessments } = await preloadAll();
   const userMap = buildUserMap(users);
   return candidates.map(c => {
-    const { avg_score } = calcCandidateScore(c.id, assessments, userMap);
+    const { avg_score } = calcCandidateScore(c.id, assessments, userMap, categories);
     return { ...c, avg_score };
   });
 }
 
 export async function getMyAssessments(userId) {
   try {
-    const [candidates, allAss] = await Promise.all([getCandidates(), getAllAssessments()]);
+    const [candidates, allAss, cats] = await Promise.all([getCandidates(), getAllAssessments(), getCategories()]);
     const myAss = allAss.filter(a => a.assessor_id === userId);
     const candIds = [...new Set(myAss.map(a => a.candidate_id))];
     const candMap = {};
     candidates.forEach(c => { candMap[c.id] = c; });
+    const catMap = {};
+    cats.forEach(c => { catMap[c.id] = c; });
 
     return candIds.map(cid => {
       const c = candMap[cid];
       if (!c) return null;
-      const myScore = myAss.filter(a => a.candidate_id === cid).reduce((s, a) => s + (a.nilai || 0), 0);
+      // Hitung skor sesuai rumus Excel: bobot × multiplier × 100
+      const myItems = myAss.filter(a => a.candidate_id === cid);
+      const myScore = myItems.reduce((s, a) => {
+        const cat = catMap[a.category_id];
+        return s + calcItemScore(a, cat);
+      }, 0);
       return { ...c, my_score: Math.round(myScore * 100) / 100 };
     }).filter(Boolean);
   } catch (error) {
@@ -430,8 +503,10 @@ export async function getMyAssessments(userId) {
 }
 
 export async function getRekapData() {
-  const { users, candidates, assessments } = await preloadAll();
+  const { users, candidates, categories, assessments } = await preloadAll();
   const userMap = buildUserMap(users);
+  const catMap = {};
+  categories.forEach(c => { catMap[c.id] = c; });
 
   return candidates.map(c => {
     const candAss = assessments.filter(a => a.candidate_id === c.id);
@@ -445,7 +520,11 @@ export async function getRekapData() {
     let totalAvg = 0, count = 0, userCount = 0;
 
     for (const [aid, items] of Object.entries(byAssessor)) {
-      const total = Math.round(items.reduce((s, a) => s + (a.nilai || 0), 0) * 100) / 100;
+      // Hitung skor sesuai rumus Excel: bobot × multiplier × 100
+      const total = Math.round(items.reduce((s, a) => {
+        const cat = catMap[a.category_id];
+        return s + calcItemScore(a, cat);
+      }, 0) * 100) / 100;
       const user = userMap[aid];
       let roleLabel = (user?.role || 'user').toUpperCase();
       if (roleLabel === 'USER') { userCount++; roleLabel = `USER-${userCount}`; }
@@ -462,12 +541,12 @@ export async function getRekapData() {
 // ==================== AUTO-FIX STATUS ====================
 // Recalculate status for all candidates that have scores but still "Dalam Proses"
 export async function fixAllStatuses() {
-  const { users, candidates, assessments } = await preloadAll();
+  const { users, candidates, categories, assessments } = await preloadAll();
   const userMap = buildUserMap(users);
   let fixed = 0;
 
   for (const c of candidates) {
-    const { avg_score } = calcCandidateScore(c.id, assessments, userMap);
+    const { avg_score } = calcCandidateScore(c.id, assessments, userMap, categories);
     if (avg_score <= 0) continue; // No scores, skip
 
     let correctStatus;
@@ -483,4 +562,41 @@ export async function fixAllStatuses() {
 
   if (fixed > 0) invalidate('candidates');
   return fixed;
+}
+
+// ==================== RESET ALL DATA ====================
+// Delete all candidates, assessments, and categories (keep users)
+export async function resetAllData() {
+  const batch = writeBatch(db);
+  let deleteCount = 0;
+
+  // Delete all candidates
+  const candidatesSnap = await getDocs(collection(db, 'candidates'));
+  candidatesSnap.forEach(doc => {
+    batch.delete(doc.ref);
+    deleteCount++;
+  });
+
+  // Delete all assessments
+  const assessmentsSnap = await getDocs(collection(db, 'assessments'));
+  assessmentsSnap.forEach(doc => {
+    batch.delete(doc.ref);
+    deleteCount++;
+  });
+
+  // Delete all categories
+  const categoriesSnap = await getDocs(collection(db, 'categories'));
+  categoriesSnap.forEach(doc => {
+    batch.delete(doc.ref);
+    deleteCount++;
+  });
+
+  // Commit batch delete
+  await batch.commit();
+
+  // Clear cache
+  invalidate();
+
+  console.log(`✅ Reset complete: ${deleteCount} documents deleted`);
+  return deleteCount;
 }

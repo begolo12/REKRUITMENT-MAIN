@@ -4,13 +4,17 @@ import { motion } from 'framer-motion';
 import { 
   User, Mail, Phone, Briefcase, Calendar, MapPin, 
   Edit2, Trash2, FileText, ClipboardList, ArrowLeft,
-  CheckCircle, XCircle, AlertCircle
+  CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronRight
 } from 'lucide-react';
-import { getCandidate, deleteCandidate } from '../services/db';
+import { getCandidate, getCandidateWithScores, deleteCandidate } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import BentoCard from '../components/ui/BentoCard';
 import ConfirmModal from '../components/ConfirmModal';
 import { staggerContainer, staggerItem } from '../utils/animations';
+
+const RATING_LABELS = { 1: 'SK', 2: 'K', 3: 'R', 4: 'B', 5: 'SB' };
+const RATING_COLORS = { 1: '#ef4444', 2: '#f59e0b', 3: '#3b82f6', 4: '#10b981', 5: '#059669' };
+const SECTION_NAMES = { A: 'Pengalaman', B: 'Administrasi', C: 'Hard Skill', D: 'Soft Skill', E: 'Psikologi Interview', F: 'Salary & Prospektus Karir', G: 'Additional Questions' };
 
 const tabs = [
   { id: 'overview', label: 'Overview', icon: User },
@@ -35,6 +39,8 @@ export default function CandidateDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({});
+  const [selectedAssessor, setSelectedAssessor] = useState(null);
 
   useEffect(() => {
     loadCandidate();
@@ -42,13 +48,22 @@ export default function CandidateDetail() {
 
   const loadCandidate = async () => {
     try {
-      const data = await getCandidate(id);
+      const data = await getCandidateWithScores(id);
       setCandidate(data);
+      // Auto-select first assessor
+      if (data?.detail_by_assessor) {
+        const firstKey = Object.keys(data.detail_by_assessor)[0];
+        if (firstKey) setSelectedAssessor(firstKey);
+      }
     } catch (err) {
       error('Gagal memuat data kandidat');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSection = (key) => {
+    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleDelete = async () => {
@@ -418,30 +433,272 @@ export default function CandidateDetail() {
         )}
 
         {activeTab === 'assessments' && (
-          <BentoCard title="Riwayat Assessment" size="lg">
-            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <ClipboardList size={48} style={{ marginBottom: 'var(--space-4)', opacity: 0.5 }} />
-              <p>Belum ada assessment</p>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleStartAssessment}
-                style={{
-                  marginTop: 'var(--space-4)',
-                  padding: 'var(--space-2) var(--space-4)',
-                  background: 'var(--primary-500)',
+          <>
+            {/* Score Summary Cards */}
+            {candidate.scores_by_assessor && candidate.scores_by_assessor.length > 0 ? (
+              <>
+                {/* Average Score */}
+                <div style={{
+                  background: candidate.avg_score >= 70 ? 'linear-gradient(135deg, #059669, #10b981)' : candidate.avg_score >= 60 ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'linear-gradient(135deg, #dc2626, #ef4444)',
+                  borderRadius: '20px',
+                  padding: '28px 32px',
+                  marginBottom: '20px',
                   color: '#fff',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 500
-                }}
-              >
-                Mulai Assessment
-              </motion.button>
-            </div>
-          </BentoCard>
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', opacity: 0.85, marginBottom: '4px' }}>Rata-rata Skor</div>
+                    <div style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>{candidate.avg_score}</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>dari 100</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {candidate.scores_by_assessor.map((s, i) => (
+                      <div key={i} style={{
+                        background: 'rgba(255,255,255,0.15)',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        textAlign: 'center',
+                        minWidth: '80px',
+                        backdropFilter: 'blur(10px)'
+                      }}>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{s.total_score}</div>
+                        <div style={{ fontSize: '0.7rem', opacity: 0.8, textTransform: 'uppercase' }}>
+                          {s.assessor?.role || 'User'}
+                        </div>
+                        <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>
+                          {s.assessor?.full_name?.split(' ')[0] || ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Assessor Tabs */}
+                {candidate.detail_by_assessor && (
+                  <>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                      {Object.entries(candidate.detail_by_assessor).map(([aid, data]) => (
+                        <button
+                          key={aid}
+                          onClick={() => setSelectedAssessor(aid)}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: '10px',
+                            border: selectedAssessor === aid ? '2px solid var(--primary-500)' : '2px solid var(--border)',
+                            background: selectedAssessor === aid ? 'var(--primary-50, #eef2ff)' : '#fff',
+                            color: selectedAssessor === aid ? 'var(--primary-600)' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {data.assessor?.role?.toUpperCase()} — {data.total}
+                          <div style={{ fontSize: '0.65rem', fontWeight: 400, opacity: 0.7 }}>{data.assessor?.full_name}</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Detail per Assessor */}
+                    {selectedAssessor && candidate.detail_by_assessor[selectedAssessor] && (() => {
+                      const detail = candidate.detail_by_assessor[selectedAssessor];
+                      // Group items by kategori_utama
+                      const grouped = {};
+                      detail.items.forEach(item => {
+                        const key = item.category?.kategori_utama || '?';
+                        if (!grouped[key]) grouped[key] = { items: [], totalScore: 0, totalBobot: 0 };
+                        grouped[key].items.push(item);
+                        grouped[key].totalScore += item.score;
+                        grouped[key].totalBobot += (item.category?.bobot || 0);
+                      });
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => {
+                            const isExpanded = expandedSections[`${selectedAssessor}_${key}`];
+                            const sectionScore = Math.round(group.totalScore * 100) / 100;
+                            const maxScore = Math.round(group.totalBobot * 100 * 100) / 100;
+
+                            return (
+                              <div key={key} style={{
+                                background: '#fff',
+                                borderRadius: '14px',
+                                border: '1px solid var(--border)',
+                                overflow: 'hidden'
+                              }}>
+                                {/* Section Header - Collapsible */}
+                                <button
+                                  onClick={() => toggleSection(`${selectedAssessor}_${key}`)}
+                                  style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '14px 18px',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    {isExpanded ? <ChevronDown size={18} color="#64748b" /> : <ChevronRight size={18} color="#64748b" />}
+                                    <span style={{
+                                      width: '32px', height: '32px',
+                                      borderRadius: '8px',
+                                      background: 'var(--primary-50, #eef2ff)',
+                                      color: 'var(--primary-600)',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontWeight: 700, fontSize: '0.8rem'
+                                    }}>{key}</span>
+                                    <div style={{ textAlign: 'left' }}>
+                                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#0f172a' }}>
+                                        {SECTION_NAMES[key] || key}
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                        {group.items.length} pertanyaan · Bobot: {Math.round(group.totalBobot * 100)}%
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div style={{
+                                    fontWeight: 700,
+                                    fontSize: '1.1rem',
+                                    color: sectionScore > 0 ? '#0f172a' : '#cbd5e1'
+                                  }}>
+                                    {sectionScore}
+                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400 }}> / {maxScore}</span>
+                                  </div>
+                                </button>
+
+                                {/* Section Detail - Expandable */}
+                                {isExpanded && (
+                                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                                    {group.items.map((item, idx) => (
+                                      <div key={idx} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '12px 18px 12px 62px',
+                                        borderBottom: idx < group.items.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                        gap: '12px'
+                                      }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
+                                              {item.category?.kode}
+                                            </span>
+                                            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#334155' }}>
+                                              {item.category?.sub_kategori || '-'}
+                                            </span>
+                                          </div>
+                                          {item.keterangan && (
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontStyle: 'italic' }}>
+                                              {item.keterangan}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                                          {item.category?.tipe === 'check' ? (
+                                            <span style={{
+                                              padding: '4px 10px',
+                                              borderRadius: '6px',
+                                              fontSize: '0.75rem',
+                                              fontWeight: 600,
+                                              background: item.check_ada ? '#d1fae5' : '#fee2e2',
+                                              color: item.check_ada ? '#059669' : '#dc2626'
+                                            }}>
+                                              {item.check_ada ? '✓ Ada' : '✗ Tidak'}
+                                            </span>
+                                          ) : (
+                                            <span style={{
+                                              padding: '4px 10px',
+                                              borderRadius: '6px',
+                                              fontSize: '0.75rem',
+                                              fontWeight: 600,
+                                              background: RATING_COLORS[item.nilai] ? `${RATING_COLORS[item.nilai]}15` : '#f1f5f9',
+                                              color: RATING_COLORS[item.nilai] || '#94a3b8'
+                                            }}>
+                                              {RATING_LABELS[item.nilai] || '-'} ({item.nilai || 0})
+                                            </span>
+                                          )}
+                                          <span style={{
+                                            fontWeight: 700,
+                                            fontSize: '0.85rem',
+                                            color: item.score > 0 ? '#0f172a' : '#cbd5e1',
+                                            minWidth: '40px',
+                                            textAlign: 'right'
+                                          }}>
+                                            {Math.round(item.score * 100) / 100}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {/* Mulai Assessment Button */}
+                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleStartAssessment}
+                    style={{
+                      padding: '10px 24px',
+                      background: 'var(--primary-500)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: 600
+                    }}
+                  >
+                    <ClipboardList size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                    Tambah / Edit Assessment
+                  </motion.button>
+                </div>
+              </>
+            ) : (
+              <BentoCard title="Riwayat Assessment" size="lg">
+                <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
+                  <ClipboardList size={48} style={{ marginBottom: 'var(--space-4)', opacity: 0.5 }} />
+                  <p>Belum ada assessment</p>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleStartAssessment}
+                    style={{
+                      marginTop: 'var(--space-4)',
+                      padding: 'var(--space-2) var(--space-4)',
+                      background: 'var(--primary-500)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    Mulai Assessment
+                  </motion.button>
+                </div>
+              </BentoCard>
+            )}
+          </>
         )}
 
         {activeTab === 'documents' && (

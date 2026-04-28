@@ -38,7 +38,7 @@ export default function AssessmentFormWizard() {
     try {
       const [candData, catData, existingAssessments] = await Promise.all([
         getCandidate(candidateId),
-        getCategories(),
+        getCategories(true), // Force refresh from Firebase
         getAssessments(candidateId, user?.id)
       ]);
 
@@ -82,7 +82,7 @@ export default function AssessmentFormWizard() {
   };
 
   const handleNext = () => {
-    if (currentStep < questions.length - 1) {
+    if (currentStep < categories.length - 1) {
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -214,17 +214,28 @@ export default function AssessmentFormWizard() {
             fontWeight: 600,
             marginBottom: 'var(--space-3)'
           }}>
-            {currentQuestion.kode} - {currentQuestion.sub_kategori}
+            {currentQuestion.kode || ''} {currentQuestion.nama_kategori || ''}
           </span>
           <h2 style={{
             fontSize: '1.25rem',
-            fontWeight: 600,
+            fontWeight: 700,
             color: 'var(--text)',
             margin: 0,
             lineHeight: 1.5
           }}>
-            {currentQuestion.pertanyaan || currentQuestion.sub_kategori}
+            {currentQuestion.sub_kategori || currentQuestion.nama || 'Pertanyaan tidak tersedia'}
           </h2>
+          {currentQuestion.pertanyaan && (
+            <p style={{
+              fontSize: '0.95rem',
+              color: 'var(--text-secondary, #475569)',
+              marginTop: 'var(--space-2)',
+              lineHeight: 1.7,
+              fontStyle: 'italic'
+            }}>
+              {currentQuestion.pertanyaan}
+            </p>
+          )}
         </div>
 
         {/* Rating or Check */}

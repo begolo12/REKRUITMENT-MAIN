@@ -1,11 +1,9 @@
-import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ToastContainer from './components/ui/ToastContainer';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
-import { SkeletonDashboard, SkeletonList } from './components/Skeleton';
 
 // Import all pages directly — fix navigation issues
 import Login from './pages/Login';
@@ -18,6 +16,7 @@ import Rekap from './pages/Rekap';
 import Users from './pages/Users';
 import Questions from './pages/Questions';
 import AdminReset from './pages/AdminReset';
+import Settings from './pages/Settings';
 
 function Private({ children }) {
   const { user, loading } = useAuth();
@@ -51,7 +50,7 @@ function Private({ children }) {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   if (loading) return null;
   return (
     <Routes>
@@ -67,6 +66,7 @@ function AppRoutes() {
         <Route path="rekap" element={<Rekap />} />
         <Route path="users" element={<Users />} />
         <Route path="questions" element={<Questions />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   );

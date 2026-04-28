@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useLocation, useNavigation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Users, ClipboardList,
-  BarChart3, HelpCircle, LogOut, Pin, PinOff, Menu, X, Briefcase
+  BarChart3, HelpCircle, LogOut, Pin, PinOff, Menu, X, Briefcase, Settings as SettingsIcon
 } from 'lucide-react';
 
 export default function Layout() {
@@ -41,6 +41,7 @@ export default function Layout() {
     { label: 'PENGATURAN', items: [
       { to: '/users', icon: <Briefcase size={20} />, text: 'Kelola User', show: isAdmin },
       { to: '/questions', icon: <HelpCircle size={20} />, text: 'Kelola Soal', show: isAdminOrHR },
+      { to: '/settings', icon: <SettingsIcon size={20} />, text: 'Pengaturan', show: isAdmin },
     ]},
   ];
 
@@ -54,6 +55,7 @@ export default function Layout() {
     if (p === '/rekap') return 'Rekap Nilai';
     if (p === '/users') return 'Kelola User';
     if (p === '/questions') return 'Kelola Soal';
+    if (p === '/settings') return 'Pengaturan';
     return 'Halaman';
   };
 
@@ -139,7 +141,12 @@ export default function Layout() {
       <div className={`main${pinned ? ' shifted' : ''}`}>
         <header className="topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className="mob-toggle" onClick={() => setMobOpen(!mobOpen)}>
+            <button
+              className="mob-toggle"
+              onClick={() => setMobOpen(!mobOpen)}
+              aria-label={mobOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
+              aria-expanded={mobOpen}
+            >
               {mobOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
             <h2>{pageTitle()}</h2>
