@@ -11,6 +11,7 @@ import ModernModal from '../components/ModernModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { staggerContainer, staggerItem } from '../utils/animations';
 import { exportCandidatesToExcel } from '../utils/exportUtils';
+import { formatSalary, parseSalary } from '../utils/helpers';
 
 const columns = [
   { key: 'nama', title: 'Nama', render: (val, row) => (
@@ -49,18 +50,6 @@ const filterDefinitions = [
     { value: 'Dalam Proses', label: 'Dalam Proses' }
   ]}
 ];
-
-// Utility function untuk format gaji dengan titik setiap seribu
-const formatSalary = (value) => {
-  if (!value) return '';
-  const numValue = value.replace(/\D/g, '');
-  return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-};
-
-// Utility function untuk parse gaji (hapus titik)
-const parseSalary = (value) => {
-  return value.replace(/\./g, '');
-};
 
 export default function Candidates() {
   const [candidates, setCandidates] = useState([]);

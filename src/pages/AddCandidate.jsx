@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createCandidate } from '../services/db';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-// Utility function untuk format gaji dengan titik setiap seribu
-const formatSalary = (value) => {
-  if (!value) return '';
-  const numValue = value.replace(/\D/g, '');
-  return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-};
+import { formatSalary } from '../utils/helpers';
 
 export default function AddCandidate() {
   const navigate = useNavigate();

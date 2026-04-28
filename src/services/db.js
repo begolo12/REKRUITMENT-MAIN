@@ -348,12 +348,12 @@ function buildUserMap(users) {
 }
 
 // Rating multiplier sesuai Excel: SK(1)=0.2, K(2)=0.4, R(3)=0.6, B(4)=0.8, SB(5)=1.0
-const RATING_MULTIPLIER = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1.0 };
+export const RATING_MULTIPLIER = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1.0 };
 
 // Hitung skor per item sesuai rumus Excel:
 // Check: hasil = check_ada ? (bobot * 100) : 0
 // Rating: hasil = bobot * rating_multiplier * 100
-function calcItemScore(assessment, category) {
+export function calcItemScore(assessment, category) {
   if (!category) return 0;
   const bobot = category.bobot || 0;
   
