@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { motion } from 'framer-motion';
-import { Trash2, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
-import { resetAllData } from '../services/db';
+import { Trash2, AlertTriangle, Settings as SettingsIcon, RefreshCw, Upload } from 'lucide-react';
+import { resetAllData, reseedCategories, importExcelData } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -10,7 +10,11 @@ import ConfirmModal from '../components/ConfirmModal';
 export default function Settings() {
   const { user } = useAuth();
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showReseedModal, setShowReseedModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isReseeding, setIsReseeding] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const isMobile = useIsMobile();
 
   const isAdmin = user?.role?.toLowerCase() === 'admin';
@@ -26,6 +30,41 @@ export default function Settings() {
       toast.error('Gagal menghapus data: ' + error.message);
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleReseedCategories = async () => {
+    setIsReseeding(true);
+    try {
+      const result = await reseedCategories();
+      if (result.success) {
+        toast.success(`Berhasil reset ${result.count} soal assessment ke default`);
+      } else {
+        toast.error('Gagal reset soal: ' + result.error);
+      }
+      setShowReseedModal(false);
+    } catch (error) {
+      console.error('Error reseeding categories:', error);
+      toast.error('Gagal reset soal: ' + error.message);
+    } finally {
+      setIsReseeding(false);
+    }
+  };
+
+  const handleImportExcel = async () => {
+    setIsImporting(true);
+    try {
+      const result = await importExcelData();
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error('Gagal import: ' + result.error);
+      }
+      setShowImportModal(false);
+    } catch (error) {
+      toast.error('Gagal import: ' + error.message);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -260,11 +299,194 @@ export default function Settings() {
           </div>
         </motion.div>
 
-        {/* Info Card */}
+        {/* Reset Soal Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          style={{
+            background: '#ffffff',
+            borderRadius: isMobile ? '16px' : '24px',
+            boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{
+            background: 'linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)',
+            padding: isMobile ? '16px 20px' : '24px 32px',
+            borderBottom: '1px solid #fde68a'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <RefreshCw size={20} style={{ color: '#fff' }} />
+              </div>
+              <div>
+                <h2 style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: '#92400e',
+                  margin: '0 0 4px 0'
+                }}>Reset Soal Assessment</h2>
+                <p style={{ margin: 0, color: '#b45309', fontSize: '0.875rem' }}>Kembalikan soal ke template default dari Excel</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: isMobile ? '20px' : '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? '16px' : '24px', flexDirection: isMobile ? 'column' : 'row' }}>
+              <div style={{
+                width: isMobile ? '48px' : '64px',
+                height: isMobile ? '48px' : '64px',
+                background: 'linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 4px 12px -4px rgba(245, 158, 11, 0.2)'
+              }}>
+                <RefreshCw size={28} style={{ color: '#d97706' }} />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  margin: '0 0 12px 0'
+                }}>Reset Soal ke Template Default</h3>
+                <p style={{
+                  color: '#64748b',
+                  fontSize: '0.95rem',
+                  margin: '0 0 12px 0',
+                  lineHeight: 1.6
+                }}>
+                  Menghapus semua soal yang ada dan menggantinya dengan <strong style={{ color: '#d97706' }}>20 soal default</strong> sesuai template Excel recruitment Daniswara Group.
+                </p>
+                <p style={{
+                  color: '#64748b',
+                  fontSize: '0.875rem',
+                  margin: '0 0 20px 0',
+                  lineHeight: 1.6
+                }}>
+                  Kategori: Pengalaman (10%), Administrasi (5%), Hard Skill (35%), Soft Skill (25%), Psikologi Interview (15%), Salary & Prospektus Karir (5%), Add User Question (5%) = <strong>Total 100%</strong>
+                </p>
+
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowReseedModal(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: isMobile ? '12px 20px' : '14px 28px',
+                    width: isMobile ? '100%' : 'auto',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    boxShadow: '0 8px 24px -6px rgba(245, 158, 11, 0.4)'
+                  }}
+                >
+                  <RefreshCw size={18} />
+                  Reset Soal ke Default
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Import Excel Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
+          style={{
+            background: '#ffffff',
+            borderRadius: isMobile ? '16px' : '24px',
+            boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{
+            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+            padding: isMobile ? '16px 20px' : '24px 32px',
+            borderBottom: '1px solid #a7f3d0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '40px', height: '40px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <Upload size={20} style={{ color: '#fff' }} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46', margin: '0 0 4px 0' }}>Import Data Excel</h2>
+                <p style={{ margin: 0, color: '#047857', fontSize: '0.875rem' }}>Import kandidat & penilaian dari file Excel</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: isMobile ? '20px' : '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? '16px' : '24px', flexDirection: isMobile ? 'column' : 'row' }}>
+              <div style={{
+                width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px',
+                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <Upload size={28} style={{ color: '#059669' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0f172a', margin: '0 0 12px 0' }}>Import Data Recruitment</h3>
+                <p style={{ color: '#64748b', fontSize: '0.95rem', margin: '0 0 12px 0', lineHeight: 1.6 }}>
+                  Import <strong style={{ color: '#059669' }}>4 kandidat</strong> dan <strong style={{ color: '#059669' }}>4 penilai</strong> beserta penilaian dari file Excel recruitment Staff Operasi.
+                </p>
+                <p style={{ color: '#64748b', fontSize: '0.875rem', margin: '0 0 20px 0', lineHeight: 1.6 }}>
+                  Kandidat: Wahyu M. Pungki, Urip, Anggy Permana Putra, Muchlis Arif<br/>
+                  Penilai: wahyu, urip, anggy, muchlis (password: [nama]123)
+                </p>
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowImportModal(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '10px',
+                    padding: isMobile ? '12px 20px' : '14px 28px',
+                    width: isMobile ? '100%' : 'auto',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer',
+                    fontWeight: 600, fontSize: '0.95rem',
+                    boxShadow: '0 8px 24px -6px rgba(16, 185, 129, 0.4)'
+                  }}
+                >
+                  <Upload size={18} />
+                  Import Data Excel
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Info Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
           style={{
             background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
             borderRadius: isMobile ? '16px' : '24px',
@@ -317,6 +539,30 @@ export default function Settings() {
         cancelText="Batal"
         type="danger"
         loading={isResetting}
+      />
+
+      <ConfirmModal
+        isOpen={showReseedModal}
+        onClose={() => setShowReseedModal(false)}
+        onConfirm={handleReseedCategories}
+        title="Reset Soal ke Default?"
+        message="Apakah Anda yakin ingin menghapus semua soal yang ada dan menggantinya dengan 20 soal default dari template Excel? Soal yang sudah dimodifikasi akan hilang."
+        confirmText="Ya, Reset Soal"
+        cancelText="Batal"
+        type="danger"
+        loading={isReseeding}
+      />
+
+      <ConfirmModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onConfirm={handleImportExcel}
+        title="Import Data Excel?"
+        message="Import 4 kandidat (Wahyu, Urip, Anggy, Muchlis) beserta 4 penilai dan penilaian dari file Excel recruitment. Data yang sudah ada tidak akan di-duplikat."
+        confirmText="Ya, Import"
+        cancelText="Batal"
+        type="info"
+        loading={isImporting}
       />
     </motion.div>
   );

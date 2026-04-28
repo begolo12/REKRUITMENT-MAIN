@@ -1,7 +1,7 @@
 import { db } from '../firebase';
 import {
-  collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, writeBatch, serverTimestamp
+  collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
+  writeBatch, serverTimestamp
 } from 'firebase/firestore';
 
 // ==================== ERROR HANDLING UTILITIES ====================
@@ -45,29 +45,9 @@ function getUserFriendlyError(error) {
   return 'Terjadi kesalahan. Silakan coba lagi.';
 }
 
-/**
- * Wrap async function with error handling
- * Returns { success: true, data: ... } or { success: false, error: 'message' }
- */
-function withErrorHandling(fn, errorMessage = 'Operasi gagal') {
-  return async function(...args) {
-    try {
-      const result = await fn.apply(this, args);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error(`${errorMessage}:`, error);
-      return {
-        success: false,
-        error: getUserFriendlyError(error)
-      };
-    }
-  };
-}
-
 // ==================== IN-MEMORY CACHE ====================
 // Prevents repeated Firestore reads. Invalidated on writes.
 const cache = { users: null, candidates: null, categories: null, assessments: null, ts: 0 };
-const CACHE_TTL = 60000; // 1 minute
 
 function invalidate(key) {
   if (key) cache[key] = null;
@@ -401,6 +381,562 @@ export async function deleteCandidate(id) {
   invalidate('assessments');
 }
 
+// ==================== DEFAULT CATEGORIES (SOAL ASSESSMENT) ====================
+// Sesuai dengan "REKAP HASIL RECRUITMENT - STAFF OPERASI.xlsx"
+// Bobot dalam desimal (misal 0.06 = 6%)
+
+const DEFAULT_CATEGORIES = [
+  // === A. PENGALAMAN (Total 10%) ===
+  { kode: 'A100', kategori_utama: 'A', nama_kategori: 'PENGALAMAN', sub_kategori: 'Pengalaman di dalam Daniswara Group', pertanyaan: 'Apakah ada Pengalaman di Daniswara Group? Bagaimana pandangan anda terkait Daniswara Group?', bobot: 0.06, tipe: 'check', order_num: 1 },
+  { kode: 'A200', kategori_utama: 'A', nama_kategori: 'PENGALAMAN', sub_kategori: 'Pengalaman di luar Daniswara Group', pertanyaan: 'Jika tidak, apakah sudah ada pengalaman sejenis di luar Daniswara?', bobot: 0.04, tipe: 'check', order_num: 2 },
+
+  // === B. ADMINISTRASI (Total 5%) ===
+  { kode: 'B100', kategori_utama: 'B', nama_kategori: 'ADMINISTRASI', sub_kategori: 'Identitas (KTP & KK)', pertanyaan: 'Apakah ada Identitas Diri KTP & KK?', bobot: 0.01, tipe: 'check', order_num: 3 },
+  { kode: 'B200', kategori_utama: 'B', nama_kategori: 'ADMINISTRASI', sub_kategori: 'SIM A (utk jabatan di Divisi Operasi)', pertanyaan: 'Apakah sudah memiliki SIM A?', bobot: 0.02, tipe: 'check', order_num: 4 },
+  { kode: 'B300', kategori_utama: 'B', nama_kategori: 'ADMINISTRASI', sub_kategori: 'SIM C', pertanyaan: 'Apakah sudah memiliki SIM C?', bobot: 0.01, tipe: 'check', order_num: 5 },
+  { kode: 'B400', kategori_utama: 'B', nama_kategori: 'ADMINISTRASI', sub_kategori: 'NPWP', pertanyaan: 'Apakah sudah Memiliki NPWP?', bobot: 0.01, tipe: 'check', order_num: 6 },
+
+  // === C. HARD SKILL - Operasi/Logistik (Total 35%) ===
+  { kode: 'C110', kategori_utama: 'C', nama_kategori: 'HARD SKILL', sub_kategori: 'Skill Mengemudi', pertanyaan: 'Coba ceritakan pengalaman / keahlian dalam mengemudi mobil angkut/logistik?', bobot: 0.15, tipe: 'rating', order_num: 7 },
+  { kode: 'C120', kategori_utama: 'C', nama_kategori: 'HARD SKILL', sub_kategori: 'Flow Administrasi Logistik', pertanyaan: 'Coba ceritakan yang anda ketahui tentang alur administrasi logistik? Dan kaitannya dengan Ms. Office', bobot: 0.10, tipe: 'rating', order_num: 8 },
+  { kode: 'C130', kategori_utama: 'C', nama_kategori: 'HARD SKILL', sub_kategori: 'Pengetahuan terkait logistik', pertanyaan: 'Ceritakan yang anda ketahui terkait dengan logistik?', bobot: 0.025, tipe: 'rating', order_num: 9 },
+  { kode: 'C140', kategori_utama: 'C', nama_kategori: 'HARD SKILL', sub_kategori: 'Pengalaman di Bongkar Muat', pertanyaan: 'Apakah memiliki pengalaman terkait bongkar muat? Sedalam apa?', bobot: 0.075, tipe: 'rating', order_num: 10 },
+
+  // === D. SOFT SKILL - Staff (Total 25%) ===
+  { kode: 'D110', kategori_utama: 'D', nama_kategori: 'SOFT SKILL', sub_kategori: 'Kepemimpinan', pertanyaan: 'Jika terjadi suatu diskusi dalam group/kelompok yang belum menemukan titik temu, apa yang akan anda lakukan?', bobot: 0.025, tipe: 'rating', order_num: 11 },
+  { kode: 'D120', kategori_utama: 'D', nama_kategori: 'SOFT SKILL', sub_kategori: 'Komunikasi', pertanyaan: 'Bagaimana hubungan kerjasama antar sesama pegawai / organisasi / kelompok? (jika memiliki pengalaman kerja)', bobot: 0.10, tipe: 'rating', order_num: 12 },
+  { kode: 'D130', kategori_utama: 'D', nama_kategori: 'SOFT SKILL', sub_kategori: 'Patuh pada Peraturan / Commitment', pertanyaan: 'Bagaimana pandangan anda terkait perusahaan dan aturan yang dapat berubah-ubah sesuai arah perusahaan?', bobot: 0.05, tipe: 'rating', order_num: 13 },
+  { kode: 'D140', kategori_utama: 'D', nama_kategori: 'SOFT SKILL', sub_kategori: 'Determinasi thd tekanan', pertanyaan: 'Bagaimana pandangan anda jika anda dituntut pada pekerjaan diluar dari waktu normal dalam bekerja?', bobot: 0.075, tipe: 'rating', order_num: 14 },
+
+  // === E. PSIKOLOGI INTERVIEW (Total 15%) ===
+  { kode: 'E100', kategori_utama: 'E', nama_kategori: 'PSIKOLOGI INTERVIEW', sub_kategori: 'Antusiasme / Keinginan bergabung', pertanyaan: 'Apa yang anda pikirkan setelah mendengar / mengetahui Daniswara membutuhkan personil baru di posisi ini?', bobot: 0.075, tipe: 'rating', order_num: 15 },
+  { kode: 'E200', kategori_utama: 'E', nama_kategori: 'PSIKOLOGI INTERVIEW', sub_kategori: 'Inisiatif', pertanyaan: 'Jika ada hal-hal yang kiranya belum diatur oleh perusahaan atau belum dapat arahan oleh atasan, apa yang biasanya anda lakukan?', bobot: 0.05, tipe: 'rating', order_num: 16 },
+  { kode: 'E300', kategori_utama: 'E', nama_kategori: 'PSIKOLOGI INTERVIEW', sub_kategori: 'Adaptif', pertanyaan: 'Coba ceritakan pengalaman anda terkait dengan berada dalam lingkungan yang baru / hal yang baru?', bobot: 0.025, tipe: 'rating', order_num: 17 },
+
+  // === F. SALARY & PROSPEKTUS KARIR (Total 5%) ===
+  { kode: 'F100', kategori_utama: 'F', nama_kategori: 'SALARY & PROSPEKTUS KARIR', sub_kategori: 'Ekspektasi Salary (Mengukur Budget & Skill)', pertanyaan: 'Menurut anda, berapa ekspektasi salary/gaji yang anda inginkan? Bagaimana jika perusahaan belum memenuhinya?', bobot: 0.04, tipe: 'rating', order_num: 18 },
+  { kode: 'F200', kategori_utama: 'F', nama_kategori: 'SALARY & PROSPEKTUS KARIR', sub_kategori: 'Tujuan Karir', pertanyaan: 'Sejauh yang anda tahu tentang Daniswara, apa tujuan anda berkarir/berkarya bersama Daniswara? Apa ada target posisi yang anda inginkan?', bobot: 0.01, tipe: 'rating', order_num: 19 },
+
+  // === G. ADD USER QUESTION (Total 5%) ===
+  { kode: 'G100', kategori_utama: 'G', nama_kategori: 'ADD USER QUESTION', sub_kategori: 'Pertanyaan Spesifik User', pertanyaan: 'Jika dalam 1 team terjadi perselisihan, apa yang akan lakukan? Dan Jika terjadi kendala di lapangan, apa yang akan anda lakukan?', bobot: 0.05, tipe: 'rating', order_num: 20 },
+];
+
+/**
+ * Seed default categories (soal assessment) ke Firebase
+ * Hanya dijalankan jika belum ada categories di database
+ */
+export async function seedDefaultCategories() {
+  try {
+    const result = await getCategories(true);
+    const existing = result.success ? result.data : [];
+    
+    if (existing.length > 0) {
+      console.log(`✅ Categories sudah ada (${existing.length} soal). Skip seeding.`);
+      return { success: true, message: 'Categories already exist', count: existing.length };
+    }
+
+    console.log('🌱 Seeding default categories...');
+    const batch = writeBatch(db);
+    
+    for (const cat of DEFAULT_CATEGORIES) {
+      const ref = doc(collection(db, 'categories'));
+      batch.set(ref, { ...cat, created_at: serverTimestamp() });
+    }
+    
+    await batch.commit();
+    invalidate('categories');
+    
+    console.log(`✅ Berhasil seed ${DEFAULT_CATEGORIES.length} soal assessment`);
+    return { success: true, message: `Seeded ${DEFAULT_CATEGORIES.length} categories`, count: DEFAULT_CATEGORIES.length };
+  } catch (error) {
+    console.error('❌ Error seeding categories:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
+}
+
+/**
+ * Force re-seed categories (hapus semua lalu seed ulang)
+ * HATI-HATI: Ini akan menghapus semua soal dan assessment yang ada!
+ */
+export async function reseedCategories() {
+  try {
+    // Hapus semua categories yang ada
+    const result = await getCategories(true);
+    const existing = result.success ? result.data : [];
+    
+    if (existing.length > 0) {
+      const batch = writeBatch(db);
+      existing.forEach(cat => batch.delete(doc(db, 'categories', cat.id)));
+      await batch.commit();
+      invalidate('categories');
+      console.log(`🗑️ Deleted ${existing.length} existing categories`);
+    }
+
+    // Seed ulang
+    const batch2 = writeBatch(db);
+    for (const cat of DEFAULT_CATEGORIES) {
+      const ref = doc(collection(db, 'categories'));
+      batch2.set(ref, { ...cat, created_at: serverTimestamp() });
+    }
+    await batch2.commit();
+    invalidate('categories');
+    
+    console.log(`✅ Re-seeded ${DEFAULT_CATEGORIES.length} soal assessment`);
+    return { success: true, message: `Re-seeded ${DEFAULT_CATEGORIES.length} categories`, count: DEFAULT_CATEGORIES.length };
+  } catch (error) {
+    console.error('❌ Error re-seeding categories:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
+}
+
+// ==================== IMPORT DATA EXCEL ====================
+// Data penilaian dari 4 file Excel recruitment Staff Operasi
+// 4 penilai menilai 4 kandidat (Deny, Ilham, Dicky, Doni)
+
+const EXCEL_ASSESSORS = [
+  { username: 'anggy', password_plain: 'anggy123', full_name: 'Anggy Permana Putra', role: 'hr' },
+  { username: 'wahyu', password_plain: 'wahyu123', full_name: 'Wahyu M. Pungki', role: 'hr' },
+  { username: 'urip', password_plain: 'urip123', full_name: 'Urip', role: 'hr' },
+  { username: 'muchlis', password_plain: 'muchlis123', full_name: 'Muchlis Arif Santoso', role: 'manager' },
+];
+
+const EXCEL_CANDIDATES = [
+  { nama: 'Deny Ferdiansyah', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)' },
+  { nama: 'Ilham Ambia Putra', posisi: 'Staff Operasi', penempatan: 'DKI Jakarta', divisi: 'Operasi', budget_salary: '' },
+  { nama: 'Mohamad Dicky', posisi: 'Staff Operasi', penempatan: 'DKI Jakarta', divisi: 'Operasi', budget_salary: '' },
+  { nama: 'M. Doni Waseso', posisi: 'Staff Operasi', penempatan: 'DKI Jakarta', divisi: 'Operasi', budget_salary: '' },
+];
+
+const EXCEL_ASSESSMENTS = [
+  // === ANGGY -> Deny Ferdiansyah === Excel Total: 70.8, Calculated: 70.8
+  { penilai: 'anggy', kandidat: 'Deny Ferdiansyah', scores: [
+    { kode: 'A100', nilai: 6, check_ada: true },
+    { kode: 'A200', nilai: 0, check_ada: false },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 2, check_ada: true },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 12, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 2, check_ada: false },
+    { kode: 'C140', nilai: 3, check_ada: false },
+    { kode: 'D110', nilai: 1, check_ada: false },
+    { kode: 'D120', nilai: 6, check_ada: false },
+    { kode: 'D130', nilai: 5, check_ada: false },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 2, check_ada: false },
+    { kode: 'F100', nilai: 3.2, check_ada: false },
+    { kode: 'F200', nilai: 0.6, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === WAHYU -> Ilham Ambia Putra === Excel Total: 66.2, Calculated: 66.2
+  { penilai: 'wahyu', kandidat: 'Ilham Ambia Putra', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 6, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 2, check_ada: false },
+    { kode: 'C140', nilai: 6, check_ada: false },
+    { kode: 'D110', nilai: 1.5, check_ada: false },
+    { kode: 'D120', nilai: 8, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false },
+    { kode: 'D140', nilai: 7.5, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 4, check_ada: false },
+    { kode: 'E300', nilai: 2, check_ada: false },
+    { kode: 'F100', nilai: 1.6, check_ada: false, keterangan: 'UMR DEPOK (TERBUKA' },
+    { kode: 'F200', nilai: 0.6, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === WAHYU -> Mohamad Dicky === Excel Total: 62.2, Calculated: 62.2
+  { penilai: 'wahyu', kandidat: 'Mohamad Dicky', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 0, check_ada: false },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 3, check_ada: false },
+    { kode: 'C120', nilai: 8, check_ada: false },
+    { kode: 'C130', nilai: 1.5, check_ada: false },
+    { kode: 'C140', nilai: 4.5, check_ada: false },
+    { kode: 'D110', nilai: 2, check_ada: false },
+    { kode: 'D120', nilai: 10, check_ada: false },
+    { kode: 'D130', nilai: 3, check_ada: false },
+    { kode: 'D140', nilai: 7.5, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 4, check_ada: false },
+    { kode: 'E300', nilai: 2.5, check_ada: false },
+    { kode: 'F100', nilai: 2.4, check_ada: false, keterangan: 'UMR DEPOK (TERBUKA)' },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === WAHYU -> M. Doni Waseso === Excel Total: 58, Calculated: 58
+  { penilai: 'wahyu', kandidat: 'M. Doni Waseso', scores: [
+    { kode: 'A100', nilai: 6, check_ada: true },
+    { kode: 'A200', nilai: 0, check_ada: false },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 0, check_ada: false },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 6, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1, check_ada: false },
+    { kode: 'C140', nilai: 4.5, check_ada: false },
+    { kode: 'D110', nilai: 1, check_ada: false },
+    { kode: 'D120', nilai: 4, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 1.5, check_ada: false },
+    { kode: 'F100', nilai: 3.2, check_ada: false, keterangan: '>3JT / MENGIKUTI' },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 3, check_ada: false }
+  ]},
+  // === URIP -> Ilham Ambia Putra === Excel Total: 61.2, Calculated: 61.2
+  { penilai: 'urip', kandidat: 'Ilham Ambia Putra', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 3, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 2, check_ada: false },
+    { kode: 'C140', nilai: 6, check_ada: false },
+    { kode: 'D110', nilai: 1.5, check_ada: false },
+    { kode: 'D120', nilai: 10, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false },
+    { kode: 'D140', nilai: 4.5, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 4, check_ada: false },
+    { kode: 'E300', nilai: 2, check_ada: false },
+    { kode: 'F100', nilai: 0.8, check_ada: false },
+    { kode: 'F200', nilai: 0.4, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === URIP -> Mohamad Dicky === Excel Total: 55.9, Calculated: 55.9
+  { penilai: 'urip', kandidat: 'Mohamad Dicky', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 6, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1, check_ada: false },
+    { kode: 'C140', nilai: 1.5, check_ada: false },
+    { kode: 'D110', nilai: 2, check_ada: false },
+    { kode: 'D120', nilai: 8, check_ada: false },
+    { kode: 'D130', nilai: 3, check_ada: false },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 4.5, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 1.5, check_ada: false },
+    { kode: 'F100', nilai: 1.6, check_ada: false },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === URIP -> M. Doni Waseso === Excel Total: 61.3, Calculated: 61.3
+  { penilai: 'urip', kandidat: 'M. Doni Waseso', scores: [
+    { kode: 'A100', nilai: 6, check_ada: true },
+    { kode: 'A200', nilai: 0, check_ada: false },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 0, check_ada: false },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 6, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1, check_ada: false },
+    { kode: 'C140', nilai: 4.5, check_ada: false },
+    { kode: 'D110', nilai: 1, check_ada: false },
+    { kode: 'D120', nilai: 6, check_ada: false },
+    { kode: 'D130', nilai: 3, check_ada: false },
+    { kode: 'D140', nilai: 7.5, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 1.5, check_ada: false },
+    { kode: 'F100', nilai: 4, check_ada: false },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 3, check_ada: false }
+  ]},
+  // === ANGGY -> Ilham Ambia Putra === Excel Total: 60, Calculated: 60
+  { penilai: 'anggy', kandidat: 'Ilham Ambia Putra', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 3, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1.5, check_ada: false },
+    { kode: 'C140', nilai: 6, check_ada: false },
+    { kode: 'D110', nilai: 2, check_ada: false },
+    { kode: 'D120', nilai: 6, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 2.5, check_ada: false },
+    { kode: 'F100', nilai: 2.4, check_ada: false, keterangan: 'UMR DEPOK - 4,9 (NEGO)' },
+    { kode: 'F200', nilai: 0.6, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === ANGGY -> Mohamad Dicky === Excel Total: 59.5, Calculated: 59.5
+  { penilai: 'anggy', kandidat: 'Mohamad Dicky', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 3, check_ada: false },
+    { kode: 'C120', nilai: 8, check_ada: false },
+    { kode: 'C130', nilai: 1.5, check_ada: false },
+    { kode: 'C140', nilai: 1.5, check_ada: false },
+    { kode: 'D110', nilai: 2, check_ada: false },
+    { kode: 'D120', nilai: 8, check_ada: false },
+    { kode: 'D130', nilai: 2, check_ada: false },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 4, check_ada: false },
+    { kode: 'E300', nilai: 2.5, check_ada: false },
+    { kode: 'F100', nilai: 3.2, check_ada: false, keterangan: 'MIN. UMR (NEGO)' },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === ANGGY -> M. Doni Waseso === Excel Total: 63, Calculated: 63
+  { penilai: 'anggy', kandidat: 'M. Doni Waseso', scores: [
+    { kode: 'A100', nilai: 6, check_ada: true },
+    { kode: 'A200', nilai: 0, check_ada: false },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 0, check_ada: false },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 6, check_ada: false },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1, check_ada: false },
+    { kode: 'C140', nilai: 4.5, check_ada: false },
+    { kode: 'D110', nilai: 1.5, check_ada: false },
+    { kode: 'D120', nilai: 6, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false },
+    { kode: 'D140', nilai: 7.5, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 1.5, check_ada: false },
+    { kode: 'F100', nilai: 3.2, check_ada: false },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 4, check_ada: false }
+  ]},
+  // === MUCHLIS -> Ilham Ambia Putra === Excel Total: 58.8, Calculated: 58.8
+  { penilai: 'muchlis', kandidat: 'Ilham Ambia Putra', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 0, check_ada: false },
+    { kode: 'C110', nilai: 3, check_ada: false, keterangan: 'BELUM LANCAR, ADA TRAUMA MENGENDARA MOBIL (NABRAK)' },
+    { kode: 'C120', nilai: 8, check_ada: false, keterangan: 'MENGETAHUI ALUR DAN ADMINSTRASI LOGISTIK' },
+    { kode: 'C130', nilai: 2, check_ada: false },
+    { kode: 'C140', nilai: 4.5, check_ada: false, keterangan: 'PERNAH MENGIRIM LANGSUNG KE CUSTOMER' },
+    { kode: 'D110', nilai: 2, check_ada: false, keterangan: 'MENCARI SOLUSI BERSAMA DAN MEMBERIKAN SOLUSI' },
+    { kode: 'D120', nilai: 10, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false, keterangan: 'MEMAKLUMI PERUBAHAN PERATURAN DAN MENGIKUTI' },
+    { kode: 'D140', nilai: 4.5, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 4, check_ada: false, keterangan: 'FLEKSIBLE DAN AKAN MENGAMBIL TINDAKAN SESUAI SIKON' },
+    { kode: 'E300', nilai: 2, check_ada: false },
+    { kode: 'F100', nilai: 2.4, check_ada: false, keterangan: 'TERBUKA UNTUK NEGOSIASI SALARY' },
+    { kode: 'F200', nilai: 0.4, check_ada: false, keterangan: 'BELUM ADA TUJUAN KARIR' },
+    { kode: 'G100', nilai: 0, check_ada: false }
+  ]},
+  // === MUCHLIS -> Mohamad Dicky === Excel Total: 52.2, Calculated: 52.2
+  { penilai: 'muchlis', kandidat: 'Mohamad Dicky', scores: [
+    { kode: 'A100', nilai: 0, check_ada: false },
+    { kode: 'A200', nilai: 4, check_ada: true, keterangan: 'PERENCANAAN PROGRAM DESA TERKAIT DANA DESA' },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 1, check_ada: true },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 3, check_ada: false, keterangan: 'TIDAK BISA MOBIL MANUAL, MATIC BELUM LANCAR' },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1.5, check_ada: false },
+    { kode: 'C140', nilai: 1.5, check_ada: false },
+    { kode: 'D110', nilai: 2, check_ada: false, keterangan: 'BERDISKUSI DENGAN TIM DAN MENGAMBIL KEPUTUSAN BERSAMA / MENGUSULKAN VOTING' },
+    { kode: 'D120', nilai: 8, check_ada: false },
+    { kode: 'D130', nilai: 3, check_ada: false, keterangan: 'MENGAMBIL SIKAP MEMPERTANYAKAN KEPENTINGAN MENGUBAH PERATURAN' },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 2, check_ada: false },
+    { kode: 'F100', nilai: 2.4, check_ada: false },
+    { kode: 'F200', nilai: 0.8, check_ada: false, keterangan: 'ADA TUJUAN KARIR KE MANAJER' },
+    { kode: 'G100', nilai: 0, check_ada: false }
+  ]},
+  // === MUCHLIS -> M. Doni Waseso === Excel Total: 57.5, Calculated: 57.5
+  { penilai: 'muchlis', kandidat: 'M. Doni Waseso', scores: [
+    { kode: 'A100', nilai: 6, check_ada: true },
+    { kode: 'A200', nilai: 0, check_ada: false },
+    { kode: 'B100', nilai: 1, check_ada: true },
+    { kode: 'B200', nilai: 0, check_ada: false },
+    { kode: 'B300', nilai: 0, check_ada: false },
+    { kode: 'B400', nilai: 1, check_ada: true },
+    { kode: 'C110', nilai: 9, check_ada: false, keterangan: 'MATIC LANCAR, MANUAL BELUM LANCAR' },
+    { kode: 'C120', nilai: 6, check_ada: false },
+    { kode: 'C130', nilai: 1.5, check_ada: false },
+    { kode: 'C140', nilai: 3, check_ada: false },
+    { kode: 'D110', nilai: 1.5, check_ada: false },
+    { kode: 'D120', nilai: 4, check_ada: false },
+    { kode: 'D130', nilai: 4, check_ada: false },
+    { kode: 'D140', nilai: 6, check_ada: false },
+    { kode: 'E100', nilai: 6, check_ada: false },
+    { kode: 'E200', nilai: 3, check_ada: false },
+    { kode: 'E300', nilai: 1.5, check_ada: false },
+    { kode: 'F100', nilai: 3.2, check_ada: false },
+    { kode: 'F200', nilai: 0.8, check_ada: false },
+    { kode: 'G100', nilai: 0, check_ada: false }
+  ]}
+];
+
+/**
+ * Import data dari Excel ke Firebase
+ * Hapus data lama, buat 4 penilai, 4 kandidat, dan 13 set penilaian
+ */
+export async function importExcelData() {
+  try {
+    console.log('🚀 Starting Excel data import...');
+
+    // 0. Hapus kandidat & assessment lama yang salah
+    const oldCandSnap = await getDocs(collection(db, 'candidates'));
+    const oldCands = oldCandSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const oldAssSnap = await getDocs(collection(db, 'assessments'));
+    const oldAss = oldAssSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Delete old data in batches
+    if (oldAss.length > 0 || oldCands.length > 0) {
+      const delBatch = writeBatch(db);
+      oldAss.forEach(a => delBatch.delete(doc(db, 'assessments', a.id)));
+      oldCands.forEach(c => delBatch.delete(doc(db, 'candidates', c.id)));
+      await delBatch.commit();
+      console.log(`🗑️ Deleted ${oldCands.length} old candidates, ${oldAss.length} old assessments`);
+    }
+    invalidate('candidates');
+    invalidate('assessments');
+
+    // Delete old assessor users (not admin)
+    const oldUserSnap = await getDocs(collection(db, 'users'));
+    const oldUsers = oldUserSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const userDelBatch = writeBatch(db);
+    let deletedUsers = 0;
+    oldUsers.forEach(u => {
+      if (u.username !== 'admin') {
+        userDelBatch.delete(doc(db, 'users', u.id));
+        deletedUsers++;
+      }
+    });
+    if (deletedUsers > 0) {
+      await userDelBatch.commit();
+      console.log(`🗑️ Deleted ${deletedUsers} old users`);
+    }
+    invalidate('users');
+
+    // 1. Get categories
+    const catSnap = await getDocs(collection(db, 'categories'));
+    const categories = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (categories.length === 0) {
+      return { success: false, error: 'Belum ada soal assessment. Seed soal terlebih dahulu.' };
+    }
+    const kodeMap = {};
+    categories.forEach(c => { kodeMap[c.kode] = c.id; });
+
+    // 2. Create assessor users
+    const assessorIds = {};
+    for (const assessor of EXCEL_ASSESSORS) {
+      const hashedPw = await hashPassword(assessor.password_plain);
+      const ref = await addDoc(collection(db, 'users'), {
+        username: assessor.username,
+        password: hashedPw,
+        full_name: assessor.full_name,
+        role: assessor.role,
+        created_at: serverTimestamp()
+      });
+      assessorIds[assessor.username] = ref.id;
+      console.log(`✅ Created assessor: ${assessor.full_name} (${assessor.role})`);
+    }
+    invalidate('users');
+
+    // 3. Create candidates
+    const candidateIds = {};
+    for (const cand of EXCEL_CANDIDATES) {
+      const ref = await addDoc(collection(db, 'candidates'), {
+        ...cand,
+        status: 'Dalam Proses',
+        created_at: serverTimestamp()
+      });
+      candidateIds[cand.nama] = ref.id;
+      console.log(`✅ Created candidate: ${cand.nama}`);
+    }
+    invalidate('candidates');
+
+    // 4. Create assessments from EXCEL_ASSESSMENTS
+    let created = 0;
+    for (const assessment of EXCEL_ASSESSMENTS) {
+      const assessorId = assessorIds[assessment.penilai];
+      const candidateId = candidateIds[assessment.kandidat];
+      if (!assessorId || !candidateId) {
+        console.warn(`⚠️ Skip: ${assessment.penilai} -> ${assessment.kandidat}`);
+        continue;
+      }
+
+      const batch = writeBatch(db);
+      for (const item of assessment.scores) {
+        const categoryId = kodeMap[item.kode];
+        if (!categoryId) continue;
+        const ref = doc(collection(db, 'assessments'));
+        batch.set(ref, {
+          candidate_id: candidateId,
+          assessor_id: assessorId,
+          category_id: categoryId,
+          nilai: item.nilai,
+          check_ada: item.check_ada,
+          keterangan: item.keterangan || '',
+          created_at: serverTimestamp()
+        });
+        created++;
+      }
+      await batch.commit();
+      console.log(`✅ ${assessment.penilai} -> ${assessment.kandidat}: ${assessment.scores.length} scores`);
+    }
+    invalidate('assessments');
+
+    // 5. Auto-update statuses
+    for (const cand of EXCEL_CANDIDATES) {
+      const candId = candidateIds[cand.nama];
+      if (candId) {
+        try { await autoUpdateStatus(candId); } catch (e) { /* ignore */ }
+      }
+    }
+
+    const msg = `Import berhasil: ${EXCEL_CANDIDATES.length} kandidat, ${EXCEL_ASSESSORS.length} penilai, ${created} penilaian`;
+    console.log(`🎉 ${msg}`);
+    return { success: true, message: msg, created };
+  } catch (error) {
+    console.error('❌ Import gagal:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
+}
+
 export async function createCategory(data) {
   try {
     const catsResult = await getCategories();
@@ -501,23 +1037,16 @@ function buildUserMap(users) {
   return m;
 }
 
-// Rating multiplier sesuai Excel: SK(1)=0.2, K(2)=0.4, R(3)=0.6, B(4)=0.8, SB(5)=1.0
+// Rating multiplier sesuai Excel: SK=20%, K=40%, R=60%, B=80%, SB=100%
 export const RATING_MULTIPLIER = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1.0 };
 
 // Hitung skor per item sesuai rumus Excel:
-// Check: hasil = check_ada ? (bobot * 100) : 0
-// Rating: hasil = bobot * rating_multiplier * 100
+// nilai di database sudah berupa skor akhir (bobot × multiplier × 100)
+// yang dihitung oleh AssessmentForm saat user memilih rating
+// Fungsi ini langsung mengembalikan nilai yang tersimpan
 export function calcItemScore(assessment, category) {
   if (!category) return 0;
-  const bobot = category.bobot || 0;
-  
-  if (category.tipe === 'check') {
-    return assessment.check_ada ? (bobot * 100) : 0;
-  } else {
-    const rating = assessment.nilai || 0;
-    const multiplier = RATING_MULTIPLIER[rating] || 0;
-    return bobot * multiplier * 100;
-  }
+  return assessment.nilai || 0;
 }
 
 function calcCandidateScore(candidateId, allAssessments, userMap, allCategories) {

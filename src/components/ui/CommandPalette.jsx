@@ -50,6 +50,16 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onAction }
     setSelectedIndex(0);
   }, [search]);
 
+  const executeCommand = useCallback((command) => {
+    if (command.path) {
+      onNavigate(command.path);
+    } else if (command.action) {
+      onAction(command.action);
+    }
+    onClose();
+    setSearch('');
+  }, [onNavigate, onAction, onClose]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isOpen) return;
@@ -78,17 +88,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onAction }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, flatCommands, selectedIndex, onClose]);
-
-  const executeCommand = (command) => {
-    if (command.path) {
-      onNavigate(command.path);
-    } else if (command.action) {
-      onAction(command.action);
-    }
-    onClose();
-    setSearch('');
-  };
+  }, [isOpen, flatCommands, selectedIndex, onClose, executeCommand]);
 
   return (
     <AnimatePresence>

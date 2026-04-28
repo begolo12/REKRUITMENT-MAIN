@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -44,11 +44,7 @@ export default function CandidateDetail() {
   const [selectedAssessor, setSelectedAssessor] = useState(null);
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    loadCandidate();
-  }, [id]);
-
-  const loadCandidate = async () => {
+  const loadCandidate = useCallback(async () => {
     try {
       const data = await getCandidateWithScores(id);
       setCandidate(data);
@@ -62,7 +58,11 @@ export default function CandidateDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, error]);
+
+  useEffect(() => {
+    loadCandidate();
+  }, [loadCandidate]);
 
   const toggleSection = (key) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -510,13 +510,15 @@ export default function CandidateDetail() {
                       const detail = candidate.detail_by_assessor[selectedAssessor];
                       // Group items by kategori_utama
                       const grouped = {};
-                      detail.items.forEach(item => {
-                        const key = item.category?.kategori_utama || '?';
-                        if (!grouped[key]) grouped[key] = { items: [], totalScore: 0, totalBobot: 0 };
-                        grouped[key].items.push(item);
-                        grouped[key].totalScore += item.score;
-                        grouped[key].totalBobot += (item.category?.bobot || 0);
-                      });
+                      if (Array.isArray(detail.items)) {
+                        detail.items.forEach(item => {
+                          const key = item.category?.kategori_utama || '?';
+                          if (!grouped[key]) grouped[key] = { items: [], totalScore: 0, totalBobot: 0 };
+                          grouped[key].items.push(item);
+                          grouped[key].totalScore += item.score;
+                          grouped[key].totalBobot += (item.category?.bobot || 0);
+                        });
+                      }
 
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

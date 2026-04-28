@@ -26,7 +26,8 @@ export default function Users() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getUsers();
+      const result = await getUsers();
+      const data = result.success ? result.data : [];
       // Cek apakah komponen masih mounted sebelum update state
       if (isMountedRef.current) {
         setUsers(data);
@@ -295,7 +296,7 @@ export default function Users() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u, i) => (
+              {Array.isArray(users) && users.length > 0 ? users.map((u, i) => (
                 <motion.tr 
                   key={u.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -431,7 +432,7 @@ export default function Users() {
                     </div>
                   </td>
                 </motion.tr>
-              ))}
+              )) : null}
             </tbody>
           </table>
         </div>

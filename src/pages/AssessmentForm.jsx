@@ -53,11 +53,12 @@ export default function AssessmentForm() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [cand, cats, existing] = await Promise.all([
+        const [cand, catsResult, existing] = await Promise.all([
           getCandidate(candidateId),
           getCategories(),
           getAssessments(candidateId, user.id),
         ]);
+        const cats = catsResult.success ? catsResult.data : [];
         setCandidate(cand);
         setCategories(cats);
 
@@ -83,11 +84,13 @@ export default function AssessmentForm() {
   // Group categories by kategori_utama
   const sections = useMemo(() => {
     const grouped = {};
-    categories.forEach(c => {
-      const key = c.kategori_utama;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(c);
-    });
+    if (Array.isArray(categories)) {
+      categories.forEach(c => {
+        const key = c.kategori_utama;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(c);
+      });
+    }
     return grouped;
   }, [categories]);
 
@@ -151,11 +154,13 @@ export default function AssessmentForm() {
     const errors = {};
     
     // Check for extreme ratings without comments
-    categories.forEach(cat => {
-      if (isExtremeRating(cat) && !hasCommentForExtremeRating(cat)) {
-        errors[cat.id] = 'Nilai ekstrem memerlukan komentar';
-      }
-    });
+    if (Array.isArray(categories)) {
+      categories.forEach(cat => {
+        if (isExtremeRating(cat) && !hasCommentForExtremeRating(cat)) {
+          errors[cat.id] = 'Nilai ekstrem memerlukan komentar';
+        }
+      });
+    }
     
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -189,7 +194,7 @@ export default function AssessmentForm() {
 
   const progress = categories.length > 0 ? Math.round((answeredCount / categories.length) * 100) : 0;
 
-  const currentCats = sections[activeTab] || [];
+  const currentCats = useMemo(() => sections[activeTab] || [], [sections, activeTab]);
   const currentQuestion = currentCats[questionIndex] || null;
 
   const currentSectionAnswered = useMemo(() => {

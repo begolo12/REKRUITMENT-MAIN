@@ -7,8 +7,7 @@ import { getDashboardData } from '../services/db';
 import { SkeletonDashboard } from '../components/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
-import BentoCard from '../components/ui/BentoCard';
-import { staggerContainer, staggerItem, cardHover } from '../utils/animations';
+import { staggerContainer, staggerItem } from '../utils/animations';
 
 const AnimatedNumber = memo(function AnimatedNumber({ value, duration = 1.5 }) {
   const [displayValue, setDisplayValue] = useState(0);

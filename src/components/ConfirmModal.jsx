@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { AlertCircle, CheckCircle, Trash2, RotateCcw } from 'lucide-react';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useId } from 'react';
 
 export default function ConfirmModal({
   isOpen,
@@ -18,7 +18,8 @@ export default function ConfirmModal({
   const isMobile = useIsMobile();
   const modalRef = useRef(null);
   const previousFocus = useRef(null);
-  const titleId = `confirm-modal-title-${Math.random().toString(36).substr(2, 9)}`;
+  const uniqueId = useId();
+  const titleId = `confirm-modal-title-${uniqueId}`;
 
   // Handle Escape key
   const handleKeyDown = useCallback((e) => {

@@ -43,7 +43,8 @@ export default function Questions() {
 
   const load = async () => {
     try {
-      const data = await getCategories();
+      const result = await getCategories();
+      const data = result.success ? result.data : [];
       setCategories(data);
       // Auto-expand all sections
       const exp = {};
@@ -59,11 +60,13 @@ export default function Questions() {
 
   // Group by kategori_utama
   const grouped = {};
-  categories.forEach(c => {
-    const key = c.kategori_utama;
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(c);
-  });
+  if (Array.isArray(categories)) {
+    categories.forEach(c => {
+      const key = c.kategori_utama;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(c);
+    });
+  }
 
   const toggleSection = (key) => {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
@@ -121,7 +124,7 @@ export default function Questions() {
     }
   };
 
-  const totalBobot = categories.reduce((s, c) => s + (c.bobot || 0), 0);
+  const totalBobot = Array.isArray(categories) ? categories.reduce((s, c) => s + (c.bobot || 0), 0) : 0;
 
   if (loading) return <SkeletonList />;
 

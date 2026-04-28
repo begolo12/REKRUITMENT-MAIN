@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Save, Clock, Loader2 } from 'lucide-react';
@@ -32,37 +32,40 @@ export default function AssessmentFormWizard() {
   const [candidate, setCandidate] = useState(null);
   const [categories, setCategories] = useState([]);
 
-  useEffect(() => {
-    loadData();
-  }, [candidateId, user]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [candData, catData, existingAssessments] = await Promise.all([
+      const [candData, catResult, existingAssessments] = await Promise.all([
         getCandidate(candidateId),
         getCategories(true), // Force refresh from Firebase
         getAssessments(candidateId, user?.id)
       ]);
 
+      const catData = catResult.success ? catResult.data : [];
       setCandidate(candData);
       setCategories(catData);
 
       // Load existing answers
       const existingAnswers = {};
-      existingAssessments.forEach(a => {
-        existingAnswers[a.category_id] = {
-          rating: a.nilai,
-          check: a.check_ada,
-          comment: a.keterangan || ''
-        };
-      });
+      if (Array.isArray(existingAssessments)) {
+        existingAssessments.forEach(a => {
+          existingAnswers[a.category_id] = {
+            rating: a.nilai,
+            check: a.check_ada,
+            comment: a.keterangan || ''
+          };
+        });
+      }
       setAnswers(existingAnswers);
     } catch (err) {
       error('Gagal memuat data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [candidateId, user, error]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAnswer = (categoryId, value, isCheck = false) => {
     setAnswers(prev => ({
@@ -98,12 +101,23 @@ export default function AssessmentFormWizard() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const assessmentData = categories.map(cat => ({
-        category_id: cat.id,
-        nilai: answers[cat.id]?.rating || 0,
-        check_ada: answers[cat.id]?.check || false,
-        keterangan: answers[cat.id]?.comment || ''
-      }));
+      const assessmentData = Array.isArray(categories) ? categories.map(cat => {
+        const ans = answers[cat.id];
+        let nilai = 0;
+        if (cat.tipe === 'check') {
+          nilai = ans?.check ? Math.round(cat.bobot * 100 * 100) / 100 : 0;
+        } else {
+          const rating = ans?.rating || 0;
+          const multiplier = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1.0 }[rating] || 0;
+          nilai = Math.round(cat.bobot * multiplier * 100 * 100) / 100;
+        }
+        return {
+          category_id: cat.id,
+          nilai,
+          check_ada: ans?.check || false,
+          keterangan: ans?.comment || ''
+        };
+      }) : [];
 
       await saveAssessments(candidateId, user.id, assessmentData);
       success('Assessment berhasil disimpan');

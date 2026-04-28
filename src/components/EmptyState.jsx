@@ -38,8 +38,7 @@ export default function EmptyState({
   description,
   action,
   actionLabel,
-  onAction,
-  illustration 
+  onAction
 }) {
   const isMobile = useIsMobile();
   

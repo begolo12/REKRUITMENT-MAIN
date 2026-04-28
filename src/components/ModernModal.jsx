@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useId } from 'react';
 
 export default function ModernModal({ 
   isOpen, 
@@ -21,7 +21,8 @@ export default function ModernModal({
 
   const modalRef = useRef(null);
   const previousFocus = useRef(null);
-  const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`;
+  const uniqueId = useId();
+  const titleId = `modal-title-${uniqueId}`;
 
   // Handle Escape key
   const handleKeyDown = useCallback((e) => {

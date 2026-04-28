@@ -2,12 +2,11 @@ import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, Trash2, FileDown, MoreHorizontal, Loader2, X, Users, SearchX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, FileDown, Loader2, X, Users, SearchX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCandidates, deleteCandidate, createCandidate } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import DataTable from '../components/ui/DataTable';
 import FilterPanel from '../components/ui/FilterPanel';
-import BentoCard from '../components/ui/BentoCard';
 import ModernModal from '../components/ModernModal';
 import ConfirmModal from '../components/ConfirmModal';
 import EmptyState from '../components/EmptyState';
@@ -15,7 +14,7 @@ import ErrorState from '../components/ErrorState';
 import { SkeletonTable } from '../components/Skeleton';
 import { staggerContainer, staggerItem } from '../utils/animations';
 import { exportCandidatesToExcel } from '../utils/exportUtils';
-import { formatSalary, parseSalary } from '../utils/helpers';
+import { formatSalary } from '../utils/helpers';
 
 // Custom hook untuk debounce
 function useDebounce(value, delay) {
@@ -73,7 +72,7 @@ function usePagination(data, pageSize = 25) {
 }
 
 // Memoized Pagination Component
-const Pagination = memo(function Pagination({ currentPage, totalPages, onNext, onPrev, onPageChange }) {
+const Pagination = memo(function Pagination({ currentPage, totalPages, onNext, onPrev }) {
   const isMobile = useIsMobile();
 
   if (totalPages <= 1) return null;
@@ -224,33 +223,12 @@ export default function Candidates() {
   // Ref untuk melacak apakah komponen masih mounted
   const isMountedRef = useRef(true);
 
-  // Premium styling
-  const headerStyle = {
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
-    borderRadius: '24px',
-    padding: '40px 48px',
-    marginBottom: '32px',
-    position: 'relative',
-    overflow: 'hidden',
-    boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)'
-  };
-
-  useEffect(() => {
-    // Reset mounted flag saat komponen mount
-    isMountedRef.current = true;
-    loadCandidates();
-    
-    // Cleanup function untuk mencegah memory leak
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  const loadCandidates = async () => {
+  const loadCandidates = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getCandidates();
+      const result = await getCandidates();
+      const data = result.success ? result.data : [];
       // Cek apakah komponen masih mounted sebelum update state
       if (isMountedRef.current) {
         setCandidates(data);
@@ -267,12 +245,27 @@ export default function Candidates() {
         setLoading(false);
       }
     }
-  };
+  }, [showError]);
+
+  useEffect(() => {
+    // Reset mounted flag saat komponen mount
+    isMountedRef.current = true;
+    loadCandidates();
+    
+    // Cleanup function untuk mencegah memory leak
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [loadCandidates]);
 
   // Debounced search query untuk performance
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const filteredCandidates = useMemo(() => {
+    // Safety check: ensure candidates is an array
+    if (!Array.isArray(candidates)) {
+      return [];
+    }
     return candidates.filter(c => {
       const matchesSearch = !debouncedSearchQuery || 
         c.nama?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||

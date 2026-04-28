@@ -285,7 +285,10 @@ export default function DataTable({
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
 
   // Memoized sort config (use external if provided, otherwise internal)
-  const sortConfig = onSort ? { key: null, direction: 'asc' } : internalSortConfig;
+  const sortConfig = useMemo(() => 
+    onSort ? { key: null, direction: 'asc' } : internalSortConfig,
+    [onSort, internalSortConfig]
+  );
 
   // Memoized sort handler
   const handleSort = useCallback((key) => {
