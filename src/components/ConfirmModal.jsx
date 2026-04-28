@@ -1,10 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { AlertCircle, CheckCircle, Trash2, RotateCcw } from 'lucide-react';
+import { useEffect, useRef, useCallback } from 'react';
 
-export default function ConfirmModal({ 
-  isOpen, 
-  onConfirm, 
-  onCancel, 
+export default function ConfirmModal({
+  isOpen,
+  onConfirm,
+  onCancel,
   title = 'Konfirmasi',
   message = 'Apakah Anda yakin?',
   confirmText = 'Ya, Lanjutkan',
@@ -13,6 +15,57 @@ export default function ConfirmModal({
   icon = null,
   loading = false
 }) {
+  const isMobile = useIsMobile();
+  const modalRef = useRef(null);
+  const previousFocus = useRef(null);
+  const titleId = `confirm-modal-title-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Handle Escape key
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+    // Focus trap logic
+    if (e.key === 'Tab' && modalRef.current) {
+      const focusableElements = modalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
+      }
+    }
+  }, [onCancel]);
+
+  // Save previous focus and set initial focus when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      previousFocus.current = document.activeElement;
+      // Focus the confirm button after a short delay for animation
+      const timer = setTimeout(() => {
+        const confirmButton = modalRef.current?.querySelector('[data-confirm-button]');
+        confirmButton?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      // Return focus to previous element when modal closes
+      previousFocus.current?.focus();
+    }
+  }, [isOpen]);
+
+  // Add keyboard event listener
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, handleKeyDown]);
   const typeConfig = {
     warning: {
       bgColor: '#fef3c7',
@@ -68,6 +121,7 @@ export default function ConfirmModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onCancel}
+            aria-hidden="true"
           />
           
           {/* Modal */}
@@ -84,10 +138,15 @@ export default function ConfirmModal({
             pointerEvents: 'none'
           }}>
             <motion.div
+              ref={modalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
               style={{
                 background: '#ffffff',
                 borderRadius: '20px',
-                padding: '32px',
+                padding: isMobile ? '24px' : '32px',
                 boxShadow: '0 20px 60px -20px rgba(0, 0, 0, 0.3)',
                 maxWidth: '420px',
                 width: '90%',
@@ -97,7 +156,7 @@ export default function ConfirmModal({
               initial={{ opacity: 0, scale: 0.85, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 20 }}
-              transition={{ 
+              transition={{
                 type: "spring",
                 stiffness: 400,
                 damping: 30
@@ -107,8 +166,8 @@ export default function ConfirmModal({
               {/* Icon */}
               <motion.div
                 style={{
-                  width: '64px',
-                  height: '64px',
+                  width: isMobile ? '48px' : '64px',
+                  height: isMobile ? '48px' : '64px',
                   background: config.bgColor,
                   borderRadius: '16px',
                   display: 'flex',
@@ -126,8 +185,9 @@ export default function ConfirmModal({
 
               {/* Title */}
               <motion.h3
+                id={titleId}
                 style={{
-                  fontSize: '1.25rem',
+                  fontSize: isMobile ? '1.1rem' : '1.25rem',
                   fontWeight: 700,
                   color: '#0f172a',
                   textAlign: 'center',
@@ -171,7 +231,7 @@ export default function ConfirmModal({
                   onClick={onCancel}
                   disabled={loading}
                   style={{
-                    padding: '10px 24px',
+                    padding: isMobile ? '10px 16px' : '10px 24px',
                     background: '#f1f5f9',
                     color: '#64748b',
                     border: 'none',
@@ -188,10 +248,11 @@ export default function ConfirmModal({
                   {cancelText}
                 </button>
                 <button
+                  data-confirm-button
                   onClick={onConfirm}
                   disabled={loading}
                   style={{
-                    padding: '10px 24px',
+                    padding: isMobile ? '10px 16px' : '10px 24px',
                     background: config.buttonColor,
                     color: '#ffffff',
                     border: 'none',

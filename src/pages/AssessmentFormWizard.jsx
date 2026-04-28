@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Save, Clock, Loader2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import BentoCard from '../components/ui/BentoCard';
 import { getCandidate, getCategories, getAssessments, saveAssessments } from '../services/db';
 import { SkeletonList } from '../components/Skeleton';
@@ -21,6 +22,7 @@ export default function AssessmentFormWizard() {
   const navigate = useNavigate();
   const { success, error } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -287,12 +289,16 @@ export default function AssessmentFormWizard() {
             </div>
           </div>
         ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: 'var(--space-3)',
-            marginBottom: 'var(--space-6)'
-          }}>
+          <div 
+            data-testid="rating-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)',
+              gap: isMobile ? 'var(--space-2)' : 'var(--space-3)',
+              marginBottom: 'var(--space-6)',
+              overflowX: isMobile ? 'auto' : 'visible'
+            }}
+          >
             {ratingOptions.map((option) => (
               <motion.button
                 key={option.value}

@@ -31,3 +31,7 @@ rekrutment-*.json
 *.njsproj
 *.sln
 *.sw?
+
+# Documentation files
+*.md
+!README.md

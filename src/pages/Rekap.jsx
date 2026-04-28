@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { motion } from 'framer-motion';
 import { getRekapData } from '../services/db';
 import { BarChart3, FileText } from 'lucide-react';
@@ -7,6 +8,7 @@ import { SkeletonList } from '../components/Skeleton';
 export default function Rekap() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     getRekapData().then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
@@ -78,15 +80,17 @@ export default function Rekap() {
       {/* Premium Header */}
       <div style={{ 
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
-        borderRadius: '24px',
-        padding: '40px 48px',
+        borderRadius: isMobile ? '16px' : '24px',
+        padding: isMobile ? '20px' : '40px 48px',
         marginBottom: '32px',
         position: 'relative',
         overflow: 'hidden',
         boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent: 'space-between',
+        gap: isMobile ? '16px' : '0'
       }}>
         <div style={{
           position: 'absolute',
@@ -100,7 +104,7 @@ export default function Rekap() {
         
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h1 style={{ 
-            fontSize: '1.75rem', 
+            fontSize: isMobile ? '1.25rem' : '1.75rem', 
             fontWeight: 800, 
             margin: '0 0 8px 0',
             color: '#fff',
@@ -125,7 +129,8 @@ export default function Rekap() {
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '14px 28px',
+            padding: isMobile ? '12px 16px' : '14px 28px',
+            width: isMobile ? '100%' : 'auto',
             background: '#ffffff',
             color: '#0f172a',
             border: 'none',
@@ -146,7 +151,7 @@ export default function Rekap() {
       {/* Premium Table */}
       <div style={{
         background: '#ffffff',
-        borderRadius: '24px',
+        borderRadius: isMobile ? '16px' : '24px',
         padding: '28px',
         boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
         border: '1px solid rgba(226, 232, 240, 0.6)'

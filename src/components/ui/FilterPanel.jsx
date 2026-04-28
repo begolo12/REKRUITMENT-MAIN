@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Filter, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { slideInRight } from '../../utils/animations';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 export default function FilterPanel({
   isOpen,
@@ -18,6 +19,7 @@ export default function FilterPanel({
   const [expandedSections, setExpandedSections] = useState({});
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
+  const isMobile = useIsMobile();
 
   const toggleSection = (key) => {
     setExpandedSections(prev => ({
@@ -169,7 +171,7 @@ export default function FilterPanel({
               position: 'fixed',
               top: 0,
               right: 0,
-              width: '360px',
+              width: isMobile ? '100%' : '360px',
               height: '100vh',
               background: 'var(--card)',
               boxShadow: 'var(--shadow-xl)',

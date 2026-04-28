@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -12,36 +12,111 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
+  // Validate a single field
+  const validateField = useCallback((name, value) => {
+    switch (name) {
+      case 'username':
+        if (!value.trim()) {
+          return 'Username harus diisi';
+        } else if (value.trim().length < 3) {
+          return 'Username minimal 3 karakter';
+        } else if (!/^[a-zA-Z0-9_]+$/.test(value.trim())) {
+          return 'Username hanya boleh huruf, angka, dan underscore';
+        }
+        return '';
+      case 'password':
+        if (!value.trim()) {
+          return 'Password harus diisi';
+        } else if (value.length < 6) {
+          return 'Password minimal 6 karakter';
+        }
+        return '';
+      default:
+        return '';
+    }
+  }, []);
 
-  const validateInput = () => {
-    const errors = [];
+  // Validate entire form
+  const validateForm = useCallback(() => {
+    const newErrors = {};
     
-    if (!username.trim()) {
-      errors.push('Username harus diisi');
-    } else if (username.trim().length < 3) {
-      errors.push('Username minimal 3 karakter');
-    } else if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
-      errors.push('Username hanya boleh huruf, angka, dan underscore');
+    const usernameError = validateField('username', username);
+    if (usernameError) newErrors.username = usernameError;
+    
+    const passwordError = validateField('password', password);
+    if (passwordError) newErrors.password = passwordError;
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [username, password, validateField]);
+
+  const handleUsernameChange = (e) => {
+    const value = e.target.value;
+    setUsername(value);
+    
+    // Real-time validation: clear error when user starts typing
+    if (touched.username && errors.username) {
+      const error = validateField('username', value);
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        if (error) {
+          newErrors.username = error;
+        } else {
+          delete newErrors.username;
+        }
+        return newErrors;
+      });
     }
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
     
-    if (!password.trim()) {
-      errors.push('Password harus diisi');
-    } else if (password.length < 6) {
-      errors.push('Password minimal 6 karakter');
+    // Real-time validation: clear error when user starts typing
+    if (touched.password && errors.password) {
+      const error = validateField('password', value);
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        if (error) {
+          newErrors.password = error;
+        } else {
+          delete newErrors.password;
+        }
+        return newErrors;
+      });
     }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
     
-    return errors;
+    // Validate on blur
+    const error = validateField(name, value);
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      if (error) {
+        newErrors[name] = error;
+      } else {
+        delete newErrors[name];
+      }
+      return newErrors;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
-    // Validasi input
-    const validationErrors = validateInput();
-    if (validationErrors.length > 0) {
-      setError(validationErrors.join('. '));
+    // Mark all fields as touched
+    setTouched({ username: true, password: true });
+    
+    // Validate all fields
+    if (!validateForm()) {
       return;
     }
     
@@ -50,10 +125,19 @@ export default function Login() {
       await login(username, password);
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Terjadi kesalahan saat login. Silakan coba lagi.');
+      setError(err.message || 'Username atau password salah');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to get input class with error state
+  const getInputClass = (fieldName) => {
+    const baseClass = 'fi input-modern';
+    if (touched[fieldName] && errors[fieldName]) {
+      return `${baseClass} fi-error`;
+    }
+    return baseClass;
   };
 
   const features = [
@@ -184,13 +268,18 @@ export default function Login() {
             >
               <label>Username</label>
               <input
-                className="fi input-modern"
+                className={getInputClass('username')}
                 type="text"
+                name="username"
                 placeholder="Masukkan username"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={handleUsernameChange}
+                onBlur={handleBlur}
                 autoFocus
               />
+              {touched.username && errors.username && (
+                <span className="field-error">{errors.username}</span>
+              )}
             </motion.div>
 
             <motion.div 
@@ -202,11 +291,13 @@ export default function Login() {
               <label>Password</label>
               <div className="pw-wrap">
                 <input
-                  className="fi input-modern"
+                  className={getInputClass('password')}
                   type={showPw ? 'text' : 'password'}
+                  name="password"
                   placeholder="Masukkan password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handlePasswordChange}
+                  onBlur={handleBlur}
                 />
                 <button 
                   type="button" 
@@ -216,6 +307,9 @@ export default function Login() {
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {touched.password && errors.password && (
+                <span className="field-error">{errors.password}</span>
+              )}
             </motion.div>
 
             <motion.button 

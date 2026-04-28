@@ -1,31 +1,60 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { motion } from 'framer-motion';
 import { getUsers, createUser, updateUser, deleteUser } from '../services/db';
 import { Users as UsersIcon, UserPlus, Edit3, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SkeletonList } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showDelete, setShowDelete] = useState(null);
   const [showPw, setShowPw] = useState(false);
   const [form, setForm] = useState({ username: '', password: '', full_name: '', role: 'user' });
   const [saving, setSaving] = useState(false);
+  const isMobile = useIsMobile();
+  // Ref untuk melacak apakah komponen masih mounted
+  const isMountedRef = useRef(true);
 
   const load = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const data = await getUsers();
-      setUsers(data);
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setUsers(data);
+      }
     } catch (err) {
-      toast.error('Gagal memuat data user');
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setError(err.message || 'Gagal memuat data pengguna');
+        toast.error('Gagal memuat data user');
+      }
+    } finally {
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    // Reset mounted flag saat komponen mount
+    isMountedRef.current = true;
+    load();
+
+    // Cleanup function untuk mencegah memory leak
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const openAdd = () => {
     setEditingUser(null);
@@ -96,6 +125,16 @@ export default function Users() {
 
   if (loading) return <SkeletonList />;
 
+  if (error) return (
+    <div style={{ padding: '20px' }}>
+      <ErrorState 
+        error={error}
+        onRetry={load}
+        title="Gagal Memuat Pengguna"
+      />
+    </div>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -106,15 +145,17 @@ export default function Users() {
       {/* Premium Header */}
       <div style={{ 
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
-        borderRadius: '24px',
-        padding: '40px 48px',
+        borderRadius: isMobile ? '16px' : '24px',
+        padding: isMobile ? '20px' : '40px 48px',
         marginBottom: '32px',
         position: 'relative',
         overflow: 'hidden',
         boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent: 'space-between',
+        gap: isMobile ? '16px' : '0'
       }}>
         <div style={{
           position: 'absolute',
@@ -128,7 +169,7 @@ export default function Users() {
         
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h1 style={{ 
-            fontSize: '1.75rem', 
+            fontSize: isMobile ? '1.25rem' : '1.75rem', 
             fontWeight: 800, 
             margin: '0 0 8px 0',
             color: '#fff',
@@ -153,7 +194,8 @@ export default function Users() {
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '14px 28px',
+            padding: isMobile ? '12px 16px' : '14px 28px',
+            width: isMobile ? '100%' : 'auto',
             background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
             color: '#fff',
             border: 'none',
@@ -174,18 +216,30 @@ export default function Users() {
       {/* Premium Table */}
       <div style={{
         background: '#ffffff',
-        borderRadius: '24px',
+        borderRadius: isMobile ? '16px' : '24px',
         padding: '28px',
         boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
         border: '1px solid rgba(226, 232, 240, 0.6)'
       }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'separate',
-            borderSpacing: '0',
-            fontSize: '0.875rem'
-          }}>
+        {users.length === 0 ? (
+          <EmptyState
+            variant="no-data"
+            icon={UsersIcon}
+            title="Belum ada user"
+            description="Mulai tambahkan user pertama untuk mengelola akses sistem rekrutmen."
+            action={{
+              label: "Tambah User",
+              onClick: openAdd
+            }}
+          />
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ 
+              width: '100%', 
+              borderCollapse: 'separate',
+              borderSpacing: '0',
+              fontSize: '0.875rem'
+            }}>
             <thead>
               <tr>
                 <th style={{ 
@@ -381,6 +435,7 @@ export default function Users() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Add/Edit Modal */}

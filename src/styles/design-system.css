@@ -235,3 +235,30 @@
   --header-height: 72px;
   --content-max-width: 1440px;
 }
+
+/* ============================================
+   MOBILE RESPONSIVE OVERRIDES
+   ============================================ */
+@media (max-width: 768px) {
+  :root {
+    /* Smaller font sizes on mobile */
+    --text-4xl: 1.75rem;
+    --text-3xl: 1.5rem;
+    --text-2xl: 1.25rem;
+    --text-xl: 1.125rem;
+    
+    /* Smaller spacing on mobile */
+    --space-20: 48px;
+    --space-24: 48px;
+    --space-16: 40px;
+    --space-12: 32px;
+    
+    /* Smaller border radius on mobile */
+    --radius-3xl: 16px;
+    --radius-2xl: 14px;
+    --radius-xl: 12px;
+    
+    /* Compact header */
+    --header-height: 56px;
+  }
+}

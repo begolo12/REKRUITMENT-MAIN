@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, Trash2, FileDown, MoreHorizontal, Loader2, X } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, FileDown, MoreHorizontal, Loader2, X, Users, SearchX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCandidates, deleteCandidate, createCandidate } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import DataTable from '../components/ui/DataTable';
@@ -9,9 +10,155 @@ import FilterPanel from '../components/ui/FilterPanel';
 import BentoCard from '../components/ui/BentoCard';
 import ModernModal from '../components/ModernModal';
 import ConfirmModal from '../components/ConfirmModal';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
+import { SkeletonTable } from '../components/Skeleton';
 import { staggerContainer, staggerItem } from '../utils/animations';
 import { exportCandidatesToExcel } from '../utils/exportUtils';
 import { formatSalary, parseSalary } from '../utils/helpers';
+
+// Custom hook untuk debounce
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// Custom hook untuk pagination
+function usePagination(data, pageSize = 25) {
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return data.slice(start, start + pageSize);
+  }, [data, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(data.length / pageSize);
+
+  const goToPage = useCallback((page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  }, [totalPages]);
+
+  const nextPage = useCallback(() => {
+    setCurrentPage(p => Math.min(p + 1, totalPages));
+  }, [totalPages]);
+
+  const prevPage = useCallback(() => {
+    setCurrentPage(p => Math.max(p - 1, 1));
+  }, []);
+
+  // Reset to page 1 when data changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data.length]);
+
+  return {
+    currentPage,
+    totalPages,
+    paginatedData,
+    goToPage,
+    nextPage,
+    prevPage
+  };
+}
+
+// Memoized Pagination Component
+const Pagination = memo(function Pagination({ currentPage, totalPages, onNext, onPrev, onPageChange }) {
+  const isMobile = useIsMobile();
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '12px',
+      padding: '20px',
+      borderTop: '1px solid rgba(226, 232, 240, 0.6)'
+    }}>
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={onPrev}
+        disabled={currentPage === 1}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: isMobile ? '8px 12px' : '10px 16px',
+          background: currentPage === 1 ? '#f1f5f9' : '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: currentPage === 1 ? '#94a3b8' : '#334155',
+          opacity: currentPage === 1 ? 0.6 : 1,
+          transition: 'all 0.2s'
+        }}
+      >
+        <ChevronLeft size={18} />
+        {!isMobile && 'Sebelumnya'}
+      </motion.button>
+
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '0.875rem',
+        color: '#64748b'
+      }}>
+        <span style={{
+          padding: '8px 16px',
+          background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+          color: '#fff',
+          borderRadius: '10px',
+          fontWeight: 700
+        }}>
+          {currentPage}
+        </span>
+        <span>dari</span>
+        <span style={{ fontWeight: 600, color: '#334155' }}>{totalPages}</span>
+      </div>
+
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={onNext}
+        disabled={currentPage === totalPages}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: isMobile ? '8px 12px' : '10px 16px',
+          background: currentPage === totalPages ? '#f1f5f9' : '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: currentPage === totalPages ? '#94a3b8' : '#334155',
+          opacity: currentPage === totalPages ? 0.6 : 1,
+          transition: 'all 0.2s'
+        }}
+      >
+        {!isMobile && 'Selanjutnya'}
+        <ChevronRight size={18} />
+      </motion.button>
+    </div>
+  );
+});
 
 const columns = [
   { key: 'nama', title: 'Nama', render: (val, row) => (
@@ -54,6 +201,7 @@ const filterDefinitions = [
 export default function Candidates() {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -70,8 +218,11 @@ export default function Candidates() {
     budget_salary: ''
   });
   const [submitting, setSubmitting] = useState(false);
-  const { success, error } = useToast();
+  const { success, error: showError } = useToast();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  // Ref untuk melacak apakah komponen masih mounted
+  const isMountedRef = useRef(true);
 
   // Premium styling
   const headerStyle = {
@@ -85,26 +236,48 @@ export default function Candidates() {
   };
 
   useEffect(() => {
+    // Reset mounted flag saat komponen mount
+    isMountedRef.current = true;
     loadCandidates();
+    
+    // Cleanup function untuk mencegah memory leak
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const loadCandidates = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const data = await getCandidates();
-      setCandidates(data);
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setCandidates(data);
+      }
     } catch (err) {
-      error('Gagal memuat data kandidat');
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setError(err.message || 'Gagal memuat data kandidat');
+        showError('Gagal memuat data kandidat');
+      }
     } finally {
-      setLoading(false);
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
+  // Debounced search query untuk performance
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
   const filteredCandidates = useMemo(() => {
     return candidates.filter(c => {
-      const matchesSearch = !searchQuery || 
-        c.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.divisi?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.posisi?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = !debouncedSearchQuery || 
+        c.nama?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        c.divisi?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        c.posisi?.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
       
       const matchesFilters = Object.entries(filters).every(([key, value]) => {
         if (!value || value === '') return true;
@@ -114,7 +287,16 @@ export default function Candidates() {
       
       return matchesSearch && matchesFilters;
     });
-  }, [candidates, searchQuery, filters]);
+  }, [candidates, debouncedSearchQuery, filters]);
+
+  // Pagination untuk large datasets
+  const {
+    currentPage,
+    totalPages,
+    paginatedData,
+    nextPage,
+    prevPage
+  } = usePagination(filteredCandidates, 25); // 25 items per page
 
   const handleDelete = async (candidate) => {
     setShowDeleteConfirm(candidate);
@@ -210,12 +392,14 @@ export default function Candidates() {
         variants={staggerItem}
         style={{ 
           display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
           justifyContent: 'space-between', 
-          alignItems: 'center',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: isMobile ? '16px' : '0',
           marginBottom: '32px',
           background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
-          padding: '32px 40px',
-          borderRadius: '24px',
+          padding: isMobile ? '20px' : '32px 40px',
+          borderRadius: isMobile ? '16px' : '24px',
           position: 'relative',
           overflow: 'hidden',
           boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)'
@@ -234,7 +418,7 @@ export default function Candidates() {
         
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h1 style={{ 
-            fontSize: '1.75rem', 
+            fontSize: isMobile ? '1.25rem' : '1.75rem', 
             fontWeight: 800, 
             margin: '0 0 8px 0',
             color: '#fff',
@@ -259,7 +443,8 @@ export default function Candidates() {
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '14px 28px',
+            padding: isMobile ? '12px 16px' : '14px 28px',
+            width: isMobile ? '100%' : 'auto',
             background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
             color: '#fff',
             border: 'none',
@@ -307,9 +492,9 @@ export default function Candidates() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               width: '100%',
-              padding: '16px 20px 16px 52px',
+              padding: isMobile ? '14px 16px 14px 44px' : '16px 20px 16px 52px',
               border: '1px solid #e2e8f0',
-              borderRadius: '16px',
+              borderRadius: isMobile ? '12px' : '16px',
               fontSize: '0.95rem',
               outline: 'none',
               background: '#ffffff',
@@ -334,7 +519,7 @@ export default function Candidates() {
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '16px 24px',
+            padding: isMobile ? '14px 16px' : '16px 24px',
             background: Object.keys(filters).length > 0 ? '#eef2ff' : '#ffffff',
             color: Object.keys(filters).length > 0 ? '#4f46e5' : '#334155',
             border: '1px solid #e2e8f0',
@@ -528,22 +713,53 @@ export default function Candidates() {
       <motion.div variants={staggerItem}>
         <div style={{
           background: '#ffffff',
-          borderRadius: '24px',
+          borderRadius: isMobile ? '16px' : '24px',
           boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
           border: '1px solid rgba(226, 232, 240, 0.6)',
           overflow: 'hidden'
         }}>
-          <DataTable
-            columns={columns}
-            data={filteredCandidates}
-            keyExtractor={(row) => row.id}
-            selectable={true}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-            loading={loading}
-            emptyMessage="Tidak ada kandidat ditemukan"
-            rowActions={rowActions}
-          />
+          {loading ? (
+            <SkeletonTable rows={5} cols={5} />
+          ) : error ? (
+            <ErrorState 
+              error={error}
+              onRetry={loadCandidates}
+            />
+          ) : filteredCandidates.length === 0 ? (
+            <EmptyState
+              variant={searchQuery || Object.keys(filters).length > 0 ? 'no-results' : 'no-data'}
+              icon={searchQuery || Object.keys(filters).length > 0 ? SearchX : Users}
+              title={searchQuery || Object.keys(filters).length > 0 ? 'Tidak ada hasil' : 'Belum ada kandidat'}
+              description={searchQuery || Object.keys(filters).length > 0 
+                ? "Tidak ada kandidat yang sesuai dengan pencarian atau filter Anda. Coba ubah kriteria pencarian."
+                : "Mulai tambahkan kandidat pertama Anda untuk memulai proses rekrutmen."
+              }
+              action={{
+                label: "Tambah Kandidat",
+                onClick: () => setShowAddModal(true)
+              }}
+            />
+          ) : (
+            <>
+              <DataTable
+                columns={columns}
+                data={paginatedData}
+                keyExtractor={(row) => row.id}
+                selectable={true}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                loading={loading}
+                emptyMessage="Tidak ada kandidat ditemukan"
+                rowActions={rowActions}
+              />
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onNext={nextPage}
+                onPrev={prevPage}
+              />
+            </>
+          )}
         </div>
       </motion.div>
 

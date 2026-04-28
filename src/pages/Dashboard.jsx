@@ -1,9 +1,12 @@
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, UserCheck, UserX, Clock, ArrowRight, TrendingUp, Plus, FileText, ClipboardList } from 'lucide-react';
+import { Users, UserCheck, UserX, Clock, ArrowRight, TrendingUp, Plus, FileText, ClipboardList, Inbox } from 'lucide-react';
 import { getDashboardData } from '../services/db';
 import { SkeletonDashboard } from '../components/Skeleton';
+import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import BentoCard from '../components/ui/BentoCard';
 import { staggerContainer, staggerItem, cardHover } from '../utils/animations';
 
@@ -40,6 +43,7 @@ const AnimatedNumber = memo(function AnimatedNumber({ value, duration = 1.5 }) {
 });
 
 const StatsCard = memo(function StatsCard({ icon: Icon, label, value, trend, trendUp, color }) {
+  const isMobile = useIsMobile();
   const colorStyles = {
     primary: { 
       bg: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', 
@@ -86,8 +90,8 @@ const StatsCard = memo(function StatsCard({ icon: Icon, label, value, trend, tre
     >
       <div style={{ 
         background: '#ffffff',
-        borderRadius: '24px',
-        padding: '28px',
+        borderRadius: isMobile ? '16px' : '24px',
+        padding: isMobile ? '20px' : '28px',
         boxShadow: `0 8px 32px -12px ${style.glow}, 0 0 0 1px rgba(226, 232, 240, 0.6)`,
         border: '1px solid rgba(226, 232, 240, 0.6)',
         transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
@@ -128,8 +132,8 @@ const StatsCard = memo(function StatsCard({ icon: Icon, label, value, trend, tre
             whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
             transition={{ duration: 0.5 }}
             style={{
-              width: '56px',
-              height: '56px',
+              width: isMobile ? '44px' : '56px',
+              height: isMobile ? '44px' : '56px',
               borderRadius: '16px',
               background: style.lightBg,
               display: 'flex',
@@ -149,7 +153,7 @@ const StatsCard = memo(function StatsCard({ icon: Icon, label, value, trend, tre
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
               style={{
-                fontSize: '2rem',
+                fontSize: isMobile ? '1.5rem' : '2rem',
                 fontWeight: 800,
                 color: '#0f172a',
                 lineHeight: 1.2,
@@ -199,6 +203,7 @@ const StatsCard = memo(function StatsCard({ icon: Icon, label, value, trend, tre
 });
 
 const QuickAction = memo(function QuickAction({ icon: Icon, label, onClick, color = 'primary' }) {
+  const isMobile = useIsMobile();
   const colorStyles = {
     primary: { 
       bg: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #3730a3 100%)',
@@ -233,11 +238,11 @@ const QuickAction = memo(function QuickAction({ icon: Icon, label, onClick, colo
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        padding: '18px 28px',
+        padding: isMobile ? '14px 16px' : '18px 28px',
         background: style.bg,
         color: '#fff',
         border: 'none',
-        borderRadius: '18px',
+        borderRadius: isMobile ? '14px' : '18px',
         cursor: 'pointer',
         fontSize: '0.95rem',
         fontWeight: 700,
@@ -281,23 +286,42 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isMobile = useIsMobile();
+  // Ref untuk melacak apakah komponen masih mounted
+  const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const d = await getDashboardData();
-      setData(d);
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setData(d);
+      }
     } catch (err) {
       console.error('Dashboard error:', err);
-      setError('Gagal memuat data dashboard. Silakan coba lagi.');
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setError('Gagal memuat data dashboard. Silakan coba lagi.');
+      }
     } finally {
-      setLoading(false);
+      // Cek apakah komponen masih mounted sebelum update state
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    // Reset mounted flag saat komponen mount
+    isMountedRef.current = true;
     fetchData();
+    
+    // Cleanup function untuk mencegah memory leak
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [fetchData]);
 
   // Memoized helper functions
@@ -323,45 +347,12 @@ export default function Dashboard() {
   if (loading) return <SkeletonDashboard />;
   
   if (error) return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '60vh',
-      textAlign: 'center',
-      padding: '40px'
-    }}>
-      <div style={{
-        width: '80px',
-        height: '80px',
-        background: '#fef2f2',
-        borderRadius: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '20px'
-      }}>
-        <span style={{ fontSize: '40px' }}>⚠️</span>
-      </div>
-      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
-        Terjadi Kesalahan
-      </h3>
-      <p style={{ color: '#64748b', marginBottom: '24px' }}>{error}</p>
-      <button 
-        onClick={fetchData}
-        style={{
-          padding: '12px 24px',
-          background: '#0f172a',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '12px',
-          cursor: 'pointer',
-          fontWeight: 600
-        }}
-      >
-        Coba Lagi
-      </button>
+    <div style={{ padding: '20px' }}>
+      <ErrorState 
+        error={error}
+        onRetry={fetchData}
+        title="Gagal Memuat Dashboard"
+      />
     </div>
   );
 
@@ -376,8 +367,8 @@ export default function Dashboard() {
       <motion.div variants={staggerItem} style={{ marginBottom: '32px' }}>
         <div style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
-          borderRadius: '24px',
-          padding: '40px',
+          borderRadius: isMobile ? '16px' : '24px',
+          padding: isMobile ? '24px' : '40px',
           position: 'relative',
           overflow: 'hidden',
           boxShadow: '0 20px 60px -20px rgba(30, 41, 59, 0.3)'
@@ -439,7 +430,7 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
               style={{ 
-                fontSize: '2.25rem', 
+                fontSize: isMobile ? '1.5rem' : '2.25rem', 
                 fontWeight: 700, 
                 marginBottom: '16px',
                 color: '#f8fafc',
@@ -454,7 +445,7 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
               style={{ 
-                fontSize: '1.05rem', 
+                fontSize: isMobile ? '0.9rem' : '1.05rem', 
                 color: 'rgba(248, 250, 252, 0.65)',
                 margin: 0,
                 maxWidth: '500px',
@@ -525,8 +516,8 @@ export default function Dashboard() {
       <motion.div variants={staggerItem}>
         <div style={{
           background: '#ffffff',
-          borderRadius: '28px',
-          padding: '32px',
+          borderRadius: isMobile ? '16px' : '28px',
+          padding: isMobile ? '20px' : '32px',
           boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
           border: '1px solid rgba(226, 232, 240, 0.8)',
           position: 'relative',
@@ -667,24 +658,17 @@ export default function Dashboard() {
               <tbody>
                 {data.recent.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ 
-                      textAlign: 'center', 
-                      padding: '48px',
-                      color: '#64748b'
-                    }}>
-                      <div style={{
-                        width: '64px',
-                        height: '64px',
-                        background: '#f1f5f9',
-                        borderRadius: '16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 16px'
-                      }}>
-                        <Users size={28} color="#94a3b8" />
-                      </div>
-                      <p style={{ margin: 0, fontWeight: 500 }}>Belum ada kandidat</p>
+                    <td colSpan={5} style={{ padding: '0' }}>
+                      <EmptyState
+                        variant="no-data"
+                        icon={Inbox}
+                        title="Belum ada kandidat"
+                        description="Mulai tambahkan kandidat pertama Anda untuk memulai proses rekrutmen."
+                        action={{
+                          label: "Tambah Kandidat",
+                          onClick: () => window.location.href = '/candidates'
+                        }}
+                      />
                     </td>
                   </tr>
                 ) : data.recent.map((c, index) => (

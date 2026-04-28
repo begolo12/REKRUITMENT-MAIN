@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -41,6 +42,7 @@ export default function CandidateDetail() {
   const [deleting, setDeleting] = useState(false);
   const [expandedSections, setExpandedSections] = useState({});
   const [selectedAssessor, setSelectedAssessor] = useState(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadCandidate();
@@ -176,15 +178,15 @@ export default function CandidateDetail() {
           }}>
             {/* Avatar */}
             <div style={{
-              width: '100px',
-              height: '100px',
+              width: isMobile ? '64px' : '100px',
+              height: isMobile ? '64px' : '100px',
               borderRadius: 'var(--radius-xl)',
               background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#fff',
-              fontSize: '2.5rem',
+              fontSize: isMobile ? '1.75rem' : '2.5rem',
               fontWeight: 700,
               flexShrink: 0
             }}>
@@ -381,7 +383,7 @@ export default function CandidateDetail() {
         {activeTab === 'overview' && (
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
             gap: 'var(--space-4)'
           }}>
             <BentoCard title="Informasi Pribadi" size="lg">
@@ -441,7 +443,7 @@ export default function CandidateDetail() {
                 <div style={{
                   background: candidate.avg_score >= 70 ? 'linear-gradient(135deg, #059669, #10b981)' : candidate.avg_score >= 60 ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'linear-gradient(135deg, #dc2626, #ef4444)',
                   borderRadius: '20px',
-                  padding: '28px 32px',
+                  padding: isMobile ? '16px' : '28px 32px',
                   marginBottom: '20px',
                   color: '#fff',
                   display: 'flex',

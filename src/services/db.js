@@ -4,6 +4,66 @@ import {
   query, orderBy, where, writeBatch, serverTimestamp
 } from 'firebase/firestore';
 
+// ==================== ERROR HANDLING UTILITIES ====================
+
+/**
+ * Convert Firebase error codes to user-friendly messages
+ */
+function getUserFriendlyError(error) {
+  const errorCode = error.code || error.message || '';
+  
+  // Firebase specific error codes
+  if (errorCode.includes('permission-denied') || errorCode.includes('insufficient permissions')) {
+    return 'Anda tidak memiliki izin untuk melakukan operasi ini.';
+  }
+  if (errorCode.includes('not-found') || errorCode.includes('document not found')) {
+    return 'Data tidak ditemukan.';
+  }
+  if (errorCode.includes('already-exists')) {
+    return 'Data sudah ada.';
+  }
+  if (errorCode.includes('resource-exhausted')) {
+    return 'Batas penggunaan terlampaui. Silakan coba lagi nanti.';
+  }
+  if (errorCode.includes('unauthenticated') || errorCode.includes('unauthorized')) {
+    return 'Sesi Anda telah berakhir. Silakan login kembali.';
+  }
+  if (errorCode.includes('network') || errorCode.includes('Network') || errorCode.includes('offline')) {
+    return 'Koneksi internet bermasalah. Silakan periksa koneksi Anda.';
+  }
+  if (errorCode.includes('timeout') || errorCode.includes('deadline-exceeded')) {
+    return 'Waktu tunggu habis. Silakan coba lagi.';
+  }
+  if (errorCode.includes('cancelled') || errorCode.includes('aborted')) {
+    return 'Operasi dibatalkan.';
+  }
+  if (errorCode.includes('invalid-argument')) {
+    return 'Data yang dimasukkan tidak valid.';
+  }
+  
+  // Default error message
+  return 'Terjadi kesalahan. Silakan coba lagi.';
+}
+
+/**
+ * Wrap async function with error handling
+ * Returns { success: true, data: ... } or { success: false, error: 'message' }
+ */
+function withErrorHandling(fn, errorMessage = 'Operasi gagal') {
+  return async function(...args) {
+    try {
+      const result = await fn.apply(this, args);
+      return { success: true, data: result };
+    } catch (error) {
+      console.error(`${errorMessage}:`, error);
+      return {
+        success: false,
+        error: getUserFriendlyError(error)
+      };
+    }
+  };
+}
+
 // ==================== IN-MEMORY CACHE ====================
 // Prevents repeated Firestore reads. Invalidated on writes.
 const cache = { users: null, candidates: null, categories: null, assessments: null, ts: 0 };
@@ -17,6 +77,15 @@ function invalidate(key) {
 // Export function to clear categories cache
 export function clearCategoriesCache() {
   cache.categories = null;
+}
+
+// Export function to clear all cache (for testing)
+export function clearAllCache() {
+  cache.users = null;
+  cache.candidates = null;
+  cache.categories = null;
+  cache.assessments = null;
+  cache.ts = 0;
 }
 
 // Simple hash function for passwords (in production, use bcrypt)
@@ -61,13 +130,18 @@ export async function ensureDefaultAdmin() {
   try {
     // Force refresh users from Firestore (bypass cache)
     invalidate('users');
-    const users = await getUsers();
-    
+    const usersResult = await getUsers();
+
+    if (!usersResult.success) {
+      throw new Error(usersResult.error);
+    }
+
+    const users = usersResult.data;
     console.log('🔍 Checking for admin user. Total users:', users.length);
-    
+
     // Check if admin user already exists
     const adminExists = users.some(u => u.username === DEFAULT_ADMIN.username);
-    
+
     if (!adminExists) {
       console.log('🔧 Creating default admin user...');
       // Create admin directly using addDoc to avoid circular dependency
@@ -87,40 +161,57 @@ export async function ensureDefaultAdmin() {
     } else {
       console.log('✅ Admin user already exists');
     }
+    return { success: true };
   } catch (error) {
     console.error('❌ Error creating default admin:', error);
+    return { success: false, error: getUserFriendlyError(error) };
   }
 }
 
 // ==================== BULK LOADERS (single query each) ====================
 
 export async function getUsers() {
-  if (cache.users) return cache.users;
-  const snap = await getDocs(collection(db, 'users'));
-  cache.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  return cache.users;
+  try {
+    if (cache.users) return { success: true, data: cache.users };
+    const snap = await getDocs(collection(db, 'users'));
+    cache.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { success: true, data: cache.users };
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function getCandidates() {
-  if (cache.candidates) return cache.candidates;
-  const snap = await getDocs(collection(db, 'candidates'));
-  const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  list.sort((a, b) => {
-    const ta = a.created_at?.toDate?.() || a.created_at || 0;
-    const tb = b.created_at?.toDate?.() || b.created_at || 0;
-    return tb - ta;
-  });
-  cache.candidates = list;
-  return cache.candidates;
+  try {
+    if (cache.candidates) return { success: true, data: cache.candidates };
+    const snap = await getDocs(collection(db, 'candidates'));
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    list.sort((a, b) => {
+      const ta = a.created_at?.toDate?.() || a.created_at || 0;
+      const tb = b.created_at?.toDate?.() || b.created_at || 0;
+      return tb - ta;
+    });
+    cache.candidates = list;
+    return { success: true, data: cache.candidates };
+  } catch (error) {
+    console.error('Error fetching candidates:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function getCategories(forceRefresh = false) {
-  if (cache.categories && !forceRefresh) return cache.categories;
-  const snap = await getDocs(collection(db, 'categories'));
-  const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
-  cache.categories = list;
-  return cache.categories;
+  try {
+    if (cache.categories && !forceRefresh) return { success: true, data: cache.categories };
+    const snap = await getDocs(collection(db, 'categories'));
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
+    cache.categories = list;
+    return { success: true, data: cache.categories };
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 // Direct fetch without any caching
@@ -145,109 +236,158 @@ export async function preloadAll() {
   const [u, c, cat, a] = await Promise.all([
     getUsers(), getCandidates(), getCategories(), getAllAssessments()
   ]);
-  return { users: u, candidates: c, categories: cat, assessments: a };
+  return {
+    users: u.success ? u.data : [],
+    candidates: c.success ? c.data : [],
+    categories: cat.success ? cat.data : [],
+    assessments: a
+  };
 }
 
 // ==================== SINGLE ITEM GETTERS ====================
 
 export async function getUserByUsername(username) {
-  const users = await getUsers();
-  return users.find(u => u.username === username) || null;
+  const result = await getUsers();
+  if (!result.success) return null;
+  return result.data.find(u => u.username === username) || null;
 }
 
 export async function getUserById(id) {
-  const users = await getUsers();
-  return users.find(u => u.id === id) || null;
+  const result = await getUsers();
+  if (!result.success) return null;
+  return result.data.find(u => u.id === id) || null;
 }
 
 export async function getCandidate(id) {
-  const cands = await getCandidates();
-  return cands.find(c => c.id === id) || null;
+  const result = await getCandidates();
+  if (!result.success) return null;
+  return result.data.find(c => c.id === id) || null;
 }
 
 // ==================== WRITE OPERATIONS (invalidate cache) ====================
 
 export async function createUser(data) {
-  const hashedPassword = await hashPassword(data.password);
-  const ref = await addDoc(collection(db, 'users'), {
-    username: data.username.toLowerCase().trim(),
-    password: hashedPassword,
-    full_name: data.full_name.trim(),
-    role: data.role || 'user',
-    created_at: serverTimestamp()
-  });
-  invalidate('users');
-  return { id: ref.id, ...data };
+  try {
+    const hashedPassword = await hashPassword(data.password);
+    const ref = await addDoc(collection(db, 'users'), {
+      username: data.username.toLowerCase().trim(),
+      password: hashedPassword,
+      full_name: data.full_name.trim(),
+      role: data.role || 'user',
+      created_at: serverTimestamp()
+    });
+    invalidate('users');
+    return { id: ref.id, ...data };
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function updateUser(id, data) {
-  // Hash password if it's being updated
-  const updateData = { ...data };
-  if (data.password) {
-    updateData.password = await hashPassword(data.password);
+  try {
+    // Hash password if it's being updated
+    const updateData = { ...data };
+    if (data.password) {
+      updateData.password = await hashPassword(data.password);
+    }
+    await updateDoc(doc(db, 'users', id), updateData);
+    invalidate('users');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return { success: false, error: getUserFriendlyError(error) };
   }
-  await updateDoc(doc(db, 'users', id), updateData);
-  invalidate('users');
 }
 
 // Validate user credentials with hashed password
 export async function validateUser(username, password) {
-  const users = await getUsers();
-  console.log('👥 Total users in DB:', users.length);
-  console.log('👥 Users:', users.map(u => ({ username: u.username, role: u.role })));
-  
-  const user = users.find(u => u.username === username.toLowerCase().trim());
-  if (!user) {
-    console.log('❌ User not found:', username);
+  try {
+    const result = await getUsers();
+
+    // Check if getUsers returned an error
+    if (!result.success) {
+      console.error('❌ Error fetching users:', result.error);
+      return null;
+    }
+
+    const users = result.data;
+    console.log('👥 Total users in DB:', users.length);
+    console.log('👥 Users:', users.map(u => ({ username: u.username, role: u.role })));
+
+    const user = users.find(u => u.username === username.toLowerCase().trim());
+    if (!user) {
+      console.log('❌ User not found:', username);
+      return null;
+    }
+    
+    // Migrate old hash format if needed
+    let storedHash = user.password;
+    if (isOldHashFormat(storedHash)) {
+      console.log('🔄 Detected old password format, migrating...');
+      storedHash = await migratePasswordIfNeeded(user, password);
+    }
+    
+    const hashedInput = await hashPassword(password);
+    console.log('🔑 Password check:', { 
+      input: password, 
+      hashedInput: hashedInput, 
+      storedHash: storedHash,
+      match: storedHash === hashedInput 
+    });
+    
+    if (storedHash !== hashedInput) {
+      console.log('❌ Password mismatch');
+      return null;
+    }
+    
+    console.log('✅ User validated:', user.username);
+    return user;
+  } catch (error) {
+    console.error('Error validating user:', error);
     return null;
   }
-  
-  // Migrate old hash format if needed
-  let storedHash = user.password;
-  if (isOldHashFormat(storedHash)) {
-    console.log('🔄 Detected old password format, migrating...');
-    storedHash = await migratePasswordIfNeeded(user, password);
-  }
-  
-  const hashedInput = await hashPassword(password);
-  console.log('🔑 Password check:', { 
-    input: password, 
-    hashedInput: hashedInput, 
-    storedHash: storedHash,
-    match: storedHash === hashedInput 
-  });
-  
-  if (storedHash !== hashedInput) {
-    console.log('❌ Password mismatch');
-    return null;
-  }
-  
-  console.log('✅ User validated:', user.username);
-  return user;
 }
 
 export async function deleteUser(id) {
-  await deleteDoc(doc(db, 'users', id));
-  invalidate('users');
+  try {
+    await deleteDoc(doc(db, 'users', id));
+    invalidate('users');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function createCandidate(data) {
-  const ref = await addDoc(collection(db, 'candidates'), {
-    nama: data.nama.trim(),
-    posisi: data.posisi.trim(),
-    penempatan: data.penempatan || '',
-    divisi: data.divisi || '',
-    budget_salary: data.budget_salary || '',
-    status: 'Dalam Proses',
-    created_at: serverTimestamp()
-  });
-  invalidate('candidates');
-  return { id: ref.id, ...data };
+  try {
+    const ref = await addDoc(collection(db, 'candidates'), {
+      nama: data.nama.trim(),
+      posisi: data.posisi.trim(),
+      penempatan: data.penempatan || '',
+      divisi: data.divisi || '',
+      budget_salary: data.budget_salary || '',
+      status: 'Dalam Proses',
+      created_at: serverTimestamp()
+    });
+    invalidate('candidates');
+    return { id: ref.id, ...data };
+  } catch (error) {
+    console.error('Error creating candidate:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function updateCandidate(id, data) {
-  await updateDoc(doc(db, 'candidates', id), data);
-  invalidate('candidates');
+  try {
+    await updateDoc(doc(db, 'candidates', id), data);
+    invalidate('candidates');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating candidate:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function deleteCandidate(id) {
@@ -262,16 +402,28 @@ export async function deleteCandidate(id) {
 }
 
 export async function createCategory(data) {
-  const cats = await getCategories();
-  const maxOrder = cats.length > 0 ? Math.max(...cats.map(c => c.order_num || 0)) : 0;
-  const ref = await addDoc(collection(db, 'categories'), { ...data, order_num: maxOrder + 1 });
-  invalidate('categories');
-  return { id: ref.id, ...data };
+  try {
+    const catsResult = await getCategories();
+    const cats = catsResult.success ? catsResult.data : [];
+    const maxOrder = cats.length > 0 ? Math.max(...cats.map(c => c.order_num || 0)) : 0;
+    const ref = await addDoc(collection(db, 'categories'), { ...data, order_num: maxOrder + 1 });
+    invalidate('categories');
+    return { success: true, data: { id: ref.id, ...data } };
+  } catch (error) {
+    console.error('Error creating category:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function updateCategory(id, data) {
-  await updateDoc(doc(db, 'categories', id), data);
-  invalidate('categories');
+  try {
+    await updateDoc(doc(db, 'categories', id), data);
+    invalidate('categories');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating category:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function deleteCategory(id) {
@@ -323,8 +475,10 @@ export async function saveAssessments(candidateId, assessorId, items) {
 // Auto-determine status from avg score: ≥70 Lulus, 60-69 Lulus dengan Catatan, <60 Tidak Lulus
 async function autoUpdateStatus(candidateId) {
   const allAss = await getAllAssessments();
-  const users = await getUsers();
-  const cats = await getCategories();
+  const usersResult = await getUsers();
+  const catsResult = await getCategories();
+  const users = usersResult.success ? usersResult.data : [];
+  const cats = catsResult.success ? catsResult.data : [];
   const userMap = buildUserMap(users);
   const { avg_score } = calcCandidateScore(candidateId, allAss, userMap, cats);
 
@@ -412,10 +566,12 @@ function calcCandidateScore(candidateId, allAssessments, userMap, allCategories)
 }
 
 export async function getCandidateWithScores(candidateId) {
-  const [cand, users, allAss, cats] = await Promise.all([
+  const [cand, usersResult, allAss, catsResult] = await Promise.all([
     getCandidate(candidateId), getUsers(), getAllAssessments(), getCategories()
   ]);
   if (!cand) return null;
+  const users = usersResult.success ? usersResult.data : [];
+  const cats = catsResult.success ? catsResult.data : [];
   const userMap = buildUserMap(users);
   const scores = calcCandidateScore(candidateId, allAss, userMap, cats);
 
@@ -449,21 +605,26 @@ export async function getCandidateWithScores(candidateId) {
 }
 
 export async function getDashboardData() {
-  const { users, candidates, categories, assessments } = await preloadAll();
-  const userMap = buildUserMap(users);
+  try {
+    const { users, candidates, categories, assessments } = await preloadAll();
+    const userMap = buildUserMap(users);
 
-  const total = candidates.length;
-  const lulus = candidates.filter(c => c.status === 'Lulus').length;
-  const lulus_catatan = candidates.filter(c => c.status === 'Lulus dengan Catatan').length;
-  const tidak_lulus = candidates.filter(c => c.status === 'Tidak Lulus').length;
-  const dalam_proses = candidates.filter(c => c.status === 'Dalam Proses').length;
+    const total = candidates.length;
+    const lulus = candidates.filter(c => c.status === 'Lulus').length;
+    const lulus_catatan = candidates.filter(c => c.status === 'Lulus dengan Catatan').length;
+    const tidak_lulus = candidates.filter(c => c.status === 'Tidak Lulus').length;
+    const dalam_proses = candidates.filter(c => c.status === 'Dalam Proses').length;
 
-  const recent = candidates.slice(0, 5).map(c => {
-    const { avg_score } = calcCandidateScore(c.id, assessments, userMap, categories);
-    return { ...c, avg_score };
-  });
+    const recent = candidates.slice(0, 5).map(c => {
+      const { avg_score } = calcCandidateScore(c.id, assessments, userMap, categories);
+      return { ...c, avg_score };
+    });
 
-  return { total, lulus, lulus_catatan, tidak_lulus, dalam_proses, recent };
+    return { total, lulus, lulus_catatan, tidak_lulus, dalam_proses, recent };
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return { success: false, error: getUserFriendlyError(error) };
+  }
 }
 
 export async function getAllCandidatesWithScores() {
@@ -477,7 +638,14 @@ export async function getAllCandidatesWithScores() {
 
 export async function getMyAssessments(userId) {
   try {
-    const [candidates, allAss, cats] = await Promise.all([getCandidates(), getAllAssessments(), getCategories()]);
+    const [candidatesResult, allAss, catsResult] = await Promise.all([getCandidates(), getAllAssessments(), getCategories()]);
+
+    // Check if any of the dependent calls returned an error
+    if (!candidatesResult.success) throw new Error(candidatesResult.error);
+    if (!catsResult.success) throw new Error(catsResult.error);
+
+    const candidates = candidatesResult.data;
+    const cats = catsResult.data;
     const myAss = allAss.filter(a => a.assessor_id === userId);
     const candIds = [...new Set(myAss.map(a => a.candidate_id))];
     const candMap = {};
@@ -498,7 +666,7 @@ export async function getMyAssessments(userId) {
     }).filter(Boolean);
   } catch (error) {
     console.error('Error in getMyAssessments:', error);
-    throw new Error('Gagal memuat penilaian: ' + error.message);
+    return { success: false, error: getUserFriendlyError(error) };
   }
 }
 

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getMyAssessments, getAllCandidatesWithScores } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { ClipboardList, CheckCircle, AlertCircle, Eye, Star, TrendingUp } from 'lucide-react';
 import { SkeletonList } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 
 const staggerContainer = {
   initial: { opacity: 0 },
@@ -29,6 +31,7 @@ export default function MyAssessments() {
   const [notAssessed, setNotAssessed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('assessed');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const load = async () => {
@@ -84,8 +87,8 @@ export default function MyAssessments() {
         variants={staggerItem}
         style={{ 
           background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
-          borderRadius: '24px',
-          padding: '40px 48px',
+          borderRadius: isMobile ? '16px' : '24px',
+          padding: isMobile ? '20px' : '40px 48px',
           marginBottom: '32px',
           position: 'relative',
           overflow: 'hidden',
@@ -104,7 +107,7 @@ export default function MyAssessments() {
         
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h1 style={{ 
-            fontSize: '1.75rem', 
+            fontSize: isMobile ? '1.25rem' : '1.75rem', 
             fontWeight: 800, 
             margin: '0 0 8px 0',
             color: '#fff',
@@ -205,7 +208,7 @@ export default function MyAssessments() {
         <motion.div variants={staggerItem}>
           <div style={{
             background: '#ffffff',
-            borderRadius: '24px',
+            borderRadius: isMobile ? '16px' : '24px',
             padding: '28px',
             boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
             border: '1px solid rgba(226, 232, 240, 0.6)'
@@ -321,24 +324,12 @@ export default function MyAssessments() {
                 <tbody>
                   {assessed.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ 
-                        textAlign: 'center', 
-                        padding: '48px',
-                        color: '#64748b'
-                      }}>
-                        <div style={{
-                          width: '64px',
-                          height: '64px',
-                          background: '#f1f5f9',
-                          borderRadius: '16px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          margin: '0 auto 16px'
-                        }}>
-                          <ClipboardList size={28} color="#94a3b8" />
-                        </div>
-                        <p style={{ margin: 0, fontWeight: 500 }}>Anda belum menilai kandidat manapun</p>
+                      <td colSpan={7} style={{ padding: 0, border: 'none' }}>
+                        <EmptyState
+                          icon={ClipboardList}
+                          title="Belum ada penilaian"
+                          description="Anda belum menilai kandidat manapun. Mulai menilai kandidat untuk melihat hasilnya di sini."
+                        />
                       </td>
                     </tr>
                   ) : assessed.map((c, i) => (
@@ -503,7 +494,7 @@ export default function MyAssessments() {
         <motion.div variants={staggerItem}>
           <div style={{
             background: '#ffffff',
-            borderRadius: '24px',
+            borderRadius: isMobile ? '16px' : '24px',
             padding: '28px',
             boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
             border: '1px solid rgba(226, 232, 240, 0.6)'
@@ -609,24 +600,12 @@ export default function MyAssessments() {
                 <tbody>
                   {notAssessed.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ 
-                        textAlign: 'center', 
-                        padding: '48px',
-                        color: '#64748b'
-                      }}>
-                        <div style={{
-                          width: '64px',
-                          height: '64px',
-                          background: '#d1fae5',
-                          borderRadius: '16px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          margin: '0 auto 16px'
-                        }}>
-                          <CheckCircle size={28} color="#059669" />
-                        </div>
-                        <p style={{ margin: 0, fontWeight: 600, color: '#059669' }}>🎉 Semua kandidat sudah Anda nilai!</p>
+                      <td colSpan={6} style={{ padding: 0, border: 'none' }}>
+                        <EmptyState
+                          icon={CheckCircle}
+                          title="Semua kandidat sudah dinilai!"
+                          description="🎉 Hebat! Anda telah menyelesaikan penilaian untuk semua kandidat yang tersedia."
+                        />
                       </td>
                     </tr>
                   ) : notAssessed.map((c, i) => (

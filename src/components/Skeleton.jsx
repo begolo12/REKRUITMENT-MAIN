@@ -1,36 +1,83 @@
 export function SkeletonLine({ width = '100%', height = 14, style }) {
   return (
-    <div style={{
-      width, height, borderRadius: 6,
-      background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
-      backgroundSize: '200% 100%',
-      animation: 'shimmer 1.5s infinite',
-      ...style
-    }} />
+    <div 
+      data-testid="skeleton"
+      className="skeleton-line"
+      style={{
+        width, 
+        height, 
+        borderRadius: 8,
+        background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.8s ease-in-out infinite',
+        ...style
+      }} 
+    />
   );
 }
 
 export function SkeletonCard({ lines = 3, style }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: 22, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.03)', ...style }}>
-      <SkeletonLine width="40%" height={12} style={{ marginBottom: 14 }} />
-      <SkeletonLine width="60%" height={28} style={{ marginBottom: 8 }} />
-      <SkeletonLine width="30%" height={12} />
+    <div 
+      data-testid="skeleton-card"
+      className="skeleton-card"
+      style={{ 
+        background: '#fff', 
+        borderRadius: 20, 
+        padding: 24, 
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+        border: '1px solid #f1f5f9', 
+        ...style 
+      }}
+    >
+      <SkeletonLine width="60%" height={18} style={{ marginBottom: 16 }} />
+      {Array.from({ length: lines }).map((_, i) => (
+        <SkeletonLine 
+          key={i} 
+          width={i === lines - 1 ? '80%' : '100%'} 
+          style={{ marginBottom: i < lines - 1 ? 12 : 0 }} 
+        />
+      ))}
     </div>
   );
 }
 
-export function SkeletonTable({ rows = 5, cols = 5 }) {
+export function SkeletonTable({ rows = 5, cols = 4 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-      <div style={{ padding: '18px 22px', borderBottom: '1px solid #f1f5f9' }}>
-        <SkeletonLine width="200px" height={16} />
+    <div 
+      data-testid="skeleton-table"
+      className="skeleton-table"
+      style={{ 
+        background: '#fff', 
+        borderRadius: 20, 
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)', 
+        border: '1px solid #f1f5f9', 
+        overflow: 'hidden' 
+      }}
+    >
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+        <SkeletonLine width="220px" height={18} />
       </div>
-      <div style={{ padding: '12px 22px' }}>
+      <div style={{ padding: '16px 24px' }}>
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 0', borderBottom: i < rows - 1 ? '1px solid #f8fafc' : 'none' }}>
+          <div 
+            key={i} 
+            data-testid="skeleton-row"
+            className="skeleton-row"
+            style={{ 
+              display: 'flex', 
+              gap: 20, 
+              padding: '14px 0', 
+              borderBottom: i < rows - 1 ? '1px solid #f8fafc' : 'none',
+              alignItems: 'center'
+            }}
+          >
             {Array.from({ length: cols }).map((_, j) => (
-              <SkeletonLine key={j} width={j === 0 ? '30%' : `${15 + Math.random() * 10}%`} height={14} />
+              <SkeletonLine 
+                key={j} 
+                width={j === 0 ? '25%' : j === cols - 1 ? '15%' : `${18 + Math.random() * 8}%`} 
+                height={16} 
+              />
             ))}
           </div>
         ))}
@@ -41,12 +88,12 @@ export function SkeletonTable({ rows = 5, cols = 5 }) {
 
 export function SkeletonDashboard() {
   return (
-    <>
+    <div data-testid="skeleton-dashboard" className="skeleton-dashboard">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
       </div>
       <SkeletonTable rows={4} cols={4} />
-    </>
+    </div>
   );
 }
 
@@ -54,10 +101,98 @@ export function SkeletonList() {
   return <SkeletonTable rows={6} cols={5} />;
 }
 
+export function SkeletonText({ lines = 3 }) {
+  return (
+    <div data-testid="skeleton-text" className="skeleton-text">
+      {Array.from({ length: lines }).map((_, i) => (
+        <SkeletonLine 
+          key={i}
+          width={i === lines - 1 ? '75%' : '100%'}
+          style={{ marginBottom: i < lines - 1 ? 12 : 0 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonHeader() {
+  return (
+    <div 
+      data-testid="skeleton-header"
+      className="skeleton-header"
+      style={{
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
+        borderRadius: 24,
+        padding: '40px 48px',
+        marginBottom: 32,
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)'
+      }}
+    >
+      <SkeletonLine width="40%" height={28} style={{ marginBottom: 12, background: 'rgba(255,255,255,0.1)' }} />
+      <SkeletonLine width="60%" height={16} style={{ background: 'rgba(255,255,255,0.05)' }} />
+    </div>
+  );
+}
+
+export function SkeletonStats({ count = 4 }) {
+  return (
+    <div 
+      data-testid="skeleton-stats"
+      className="skeleton-stats"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 16,
+        marginBottom: 32
+      }}
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonCard key={i} lines={2} />
+      ))}
+    </div>
+  );
+}
+
 // Add shimmer animation via style tag
 if (typeof document !== 'undefined' && !document.getElementById('skeleton-style')) {
   const style = document.createElement('style');
   style.id = 'skeleton-style';
-  style.textContent = `@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`;
+  style.textContent = `
+    @keyframes shimmer { 
+      0% { background-position: 200% 0; } 
+      100% { background-position: -200% 0; } 
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .skeleton-line {
+      will-change: background-position;
+    }
+    
+    .skeleton-card {
+      will-change: transform;
+    }
+    
+    @media (max-width: 768px) {
+      .skeleton-card {
+        border-radius: 16px;
+        padding: 20px;
+      }
+      
+      .skeleton-table {
+        border-radius: 16px;
+      }
+      
+      .skeleton-header {
+        border-radius: 16px;
+        padding: 20px 24px;
+      }
+    }
+  `;
   document.head.appendChild(style);
 }

@@ -34,7 +34,7 @@ export function NavigationFooter({
         background: '#ffffff',
         borderTop: '1px solid #e2e8f0',
         position: 'fixed',
-        bottom: 0,
+        bottom: 'calc(64px + env(safe-area-inset-bottom))',
         left: 0,
         right: 0,
         zIndex: 100,

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { motion } from 'framer-motion';
 import { Trash2, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
 import { resetAllData } from '../services/db';
@@ -10,6 +11,7 @@ export default function Settings() {
   const { user } = useAuth();
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const isMobile = useIsMobile();
 
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
@@ -38,15 +40,15 @@ export default function Settings() {
           maxWidth: '600px',
           margin: '0 auto',
           background: '#ffffff',
-          borderRadius: '24px',
+          borderRadius: isMobile ? '16px' : '24px',
           boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
           border: '1px solid rgba(226, 232, 240, 0.8)',
-          padding: '48px',
+          padding: isMobile ? '32px 20px' : '48px',
           textAlign: 'center'
         }}>
           <div style={{
-            width: '80px',
-            height: '80px',
+            width: isMobile ? '56px' : '80px',
+            height: isMobile ? '56px' : '80px',
             background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
             borderRadius: '20px',
             display: 'flex',
@@ -81,12 +83,13 @@ export default function Settings() {
         animate={{ opacity: 1, y: 0 }}
         style={{
           display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: isMobile ? 'flex-start' : 'center',
           marginBottom: '32px',
           background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
-          padding: '32px 40px',
-          borderRadius: '24px',
+          padding: isMobile ? '20px' : '32px 40px',
+          borderRadius: isMobile ? '16px' : '24px',
           position: 'relative',
           overflow: 'hidden',
           boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)'
@@ -105,8 +108,8 @@ export default function Settings() {
 
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{
-            width: '64px',
-            height: '64px',
+            width: isMobile ? '48px' : '64px',
+            height: isMobile ? '48px' : '64px',
             background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
             borderRadius: '16px',
             display: 'flex',
@@ -114,11 +117,11 @@ export default function Settings() {
             justifyContent: 'center',
             boxShadow: '0 8px 24px -6px rgba(79, 70, 229, 0.4)'
           }}>
-            <SettingsIcon size={32} style={{ color: '#fff' }} />
+            <SettingsIcon size={isMobile ? 24 : 32} style={{ color: '#fff' }} />
           </div>
           <div>
             <h1 style={{
-              fontSize: '1.75rem',
+              fontSize: isMobile ? '1.25rem' : '1.75rem',
               fontWeight: 800,
               margin: '0 0 8px 0',
               color: '#fff',
@@ -146,7 +149,7 @@ export default function Settings() {
           transition={{ delay: 0.1 }}
           style={{
             background: '#ffffff',
-            borderRadius: '24px',
+            borderRadius: isMobile ? '16px' : '24px',
             boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
             border: '1px solid rgba(226, 232, 240, 0.8)',
             overflow: 'hidden'
@@ -154,7 +157,7 @@ export default function Settings() {
         >
           <div style={{
             background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-            padding: '24px 32px',
+            padding: isMobile ? '16px 20px' : '24px 32px',
             borderBottom: '1px solid #fecaca'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -181,11 +184,11 @@ export default function Settings() {
             </div>
           </div>
 
-          <div style={{ padding: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }}>
+          <div style={{ padding: isMobile ? '20px' : '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? '16px' : '24px', flexDirection: isMobile ? 'column' : 'row' }}>
               <div style={{
-                width: '64px',
-                height: '64px',
+                width: isMobile ? '48px' : '64px',
+                height: isMobile ? '48px' : '64px',
                 background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
                 borderRadius: '16px',
                 display: 'flex',
@@ -237,7 +240,8 @@ export default function Settings() {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '10px',
-                    padding: '14px 28px',
+                    padding: isMobile ? '12px 20px' : '14px 28px',
+                    width: isMobile ? '100%' : 'auto',
                     background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
                     color: '#fff',
                     border: 'none',
@@ -263,15 +267,15 @@ export default function Settings() {
           transition={{ delay: 0.2 }}
           style={{
             background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            borderRadius: '24px',
+            borderRadius: isMobile ? '16px' : '24px',
             border: '1px solid #bfdbfe',
-            padding: '28px 32px'
+            padding: isMobile ? '20px' : '28px 32px'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
             <div style={{
-              width: '56px',
-              height: '56px',
+              width: isMobile ? '44px' : '56px',
+              height: isMobile ? '44px' : '56px',
               background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
               borderRadius: '14px',
               display: 'flex',

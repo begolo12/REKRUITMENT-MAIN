@@ -77,12 +77,13 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           style={{
-            width: '420px',
+            width: 'min(420px, calc(100vw - 32px))',
+            maxWidth: '420px',
             background: 'var(--card)',
             borderRadius: 'var(--radius-xl)',
             boxShadow: 'var(--shadow-xl)',
             zIndex: 9999,
-            padding: 'var(--space-8)',
+            padding: 'clamp(20px, 5vw, 32px)',
             textAlign: 'center'
           }}
           onClick={(e) => e.stopPropagation()}

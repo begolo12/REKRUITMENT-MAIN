@@ -379,7 +379,7 @@ select:focus {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .login-page {
     padding: 12px;
   }
@@ -427,6 +427,14 @@ select:focus {
     justify-content: center;
   }
 
+  /* Don't force full-width on modal action buttons */
+  .modal-acts .btn,
+  .modal-actions .btn,
+  .modal-acts button,
+  .modal-actions button {
+    width: auto;
+  }
+
   .form-row,
   .modal-field-grid,
   .d-grid {
@@ -434,6 +442,6 @@ select:focus {
   }
 
   table {
-    min-width: 720px;
+    min-width: 560px;
   }
 }

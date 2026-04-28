@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useEffect, useRef, useCallback } from 'react';
 
 export default function ModernModal({ 
   isOpen, 
@@ -18,6 +19,63 @@ export default function ModernModal({
     full: 'max-w-full mx-4'
   };
 
+  const modalRef = useRef(null);
+  const previousFocus = useRef(null);
+  const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Handle Escape key
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+    // Focus trap logic
+    if (e.key === 'Tab' && modalRef.current) {
+      const focusableElements = modalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
+      }
+    }
+  }, [onClose]);
+
+  // Save previous focus and set initial focus when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      previousFocus.current = document.activeElement;
+      // Focus the modal container after a short delay for animation
+      const timer = setTimeout(() => {
+        const focusableElements = modalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements && focusableElements.length > 0) {
+          focusableElements[0].focus();
+        } else {
+          modalRef.current?.focus();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      // Return focus to previous element when modal closes
+      previousFocus.current?.focus();
+    }
+  }, [isOpen]);
+
+  // Add keyboard event listener
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, handleKeyDown]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,11 +88,17 @@ export default function ModernModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
+            aria-hidden="true"
           />
           
           {/* Modal Container */}
           <div className="modal-container">
             <motion.div
+              ref={modalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
               className={`modal-content ${sizes[size]}`}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -50,6 +114,7 @@ export default function ModernModal({
               <div className="modal-header">
                 <div>
                   <motion.h3 
+                    id={titleId}
                     className="modal-title"
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -77,6 +142,7 @@ export default function ModernModal({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.15 }}
+                    aria-label="Tutup modal"
                   >
                     <X size={20} />
                   </motion.button>

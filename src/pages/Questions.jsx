@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { motion } from 'framer-motion';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../services/db';
 import { HelpCircle, Plus, Edit3, Trash2, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
@@ -38,6 +39,7 @@ export default function Questions() {
     sub_kategori: '', pertanyaan: '', bobot: 0.05, tipe: 'rating',
   });
   const [showDelete, setShowDelete] = useState(null);
+  const isMobile = useIsMobile();
 
   const load = async () => {
     try {
@@ -133,8 +135,8 @@ export default function Questions() {
       {/* Elegant Header */}
       <div style={{ 
         background: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
-        borderRadius: '24px',
-        padding: '40px',
+        borderRadius: isMobile ? '16px' : '24px',
+        padding: isMobile ? '20px' : '40px',
         marginBottom: '32px',
         position: 'relative',
         overflow: 'hidden',
@@ -151,10 +153,10 @@ export default function Questions() {
           pointerEvents: 'none'
         }} />
         
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: isMobile ? '16px' : '0' }}>
           <div>
             <h1 style={{ 
-              fontSize: '2rem', 
+              fontSize: isMobile ? '1.25rem' : '2rem', 
               fontWeight: 700, 
               margin: '0 0 8px 0',
               color: '#f8fafc',
@@ -186,7 +188,8 @@ export default function Questions() {
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              padding: '14px 24px',
+              padding: isMobile ? '12px 16px' : '14px 24px',
+              width: isMobile ? '100%' : 'auto',
               background: 'rgba(255, 255, 255, 0.1)',
               color: '#f8fafc',
               border: '1px solid rgba(255, 255, 255, 0.2)',
