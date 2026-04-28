@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Users, ClipboardList,
   BarChart3, HelpCircle, LogOut, Pin, PinOff, Menu, X, Briefcase, Settings as SettingsIcon
 } from 'lucide-react';
+import BottomNav from './BottomNav';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -159,6 +160,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <BottomNav />
     </div>
   );
 }

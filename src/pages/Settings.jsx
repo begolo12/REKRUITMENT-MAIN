@@ -29,86 +29,228 @@ export default function Settings() {
 
   if (!isAdmin) {
     return (
-      <div className="p-4 sm:p-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl mx-auto"
-        >
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-              <AlertTriangle size={28} className="text-yellow-600 sm:w-8 sm:h-8" />
-            </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Akses Ditolak</h2>
-            <p className="text-sm sm:text-base text-gray-600">Hanya Admin yang dapat mengakses halaman ini.</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{ padding: '24px' }}
+      >
+        <div style={{
+          maxWidth: '600px',
+          margin: '0 auto',
+          background: '#ffffff',
+          borderRadius: '24px',
+          boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          padding: '48px',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderRadius: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            boxShadow: '0 8px 20px -6px rgba(245, 158, 11, 0.3)'
+          }}>
+            <AlertTriangle size={36} style={{ color: '#d97706' }} />
           </div>
-        </motion.div>
-      </div>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            color: '#0f172a',
+            marginBottom: '12px'
+          }}>Akses Ditolak</h2>
+          <p style={{ color: '#64748b', fontSize: '1rem' }}>Hanya Admin yang dapat mengakses halaman ini.</p>
+        </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{ padding: '24px' }}
+    >
+      {/* Premium Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto space-y-4 sm:space-y-6"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '32px',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
+          padding: '32px 40px',
+          borderRadius: '24px',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)'
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <SettingsIcon size={20} className="text-white" />
+        {/* Decorative elements */}
+        <div style={{
+          position: 'absolute',
+          top: '-50%',
+          right: '-10%',
+          width: '300px',
+          height: '300px',
+          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)',
+          pointerEvents: 'none'
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 24px -6px rgba(79, 70, 229, 0.4)'
+          }}>
+            <SettingsIcon size={32} style={{ color: '#fff' }} />
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Pengaturan Sistem</h1>
-            <p className="text-xs sm:text-sm text-gray-600 truncate">Kelola pengaturan dan data aplikasi</p>
+          <div>
+            <h1 style={{
+              fontSize: '1.75rem',
+              fontWeight: 800,
+              margin: '0 0 8px 0',
+              color: '#fff',
+              letterSpacing: '-0.02em'
+            }}>
+              Pengaturan Sistem
+            </h1>
+            <p style={{
+              margin: 0,
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '0.95rem'
+            }}>
+              Kelola pengaturan dan data aplikasi
+            </p>
           </div>
         </div>
+      </motion.div>
+
+      <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
         {/* Danger Zone Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-red-200 overflow-hidden"
+          style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            boxShadow: '0 8px 40px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            overflow: 'hidden'
+          }}
         >
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-red-200">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={18} className="text-red-600 flex-shrink-0" />
-              <h2 className="text-base sm:text-lg font-semibold text-red-900">Danger Zone</h2>
+          <div style={{
+            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+            padding: '24px 32px',
+            borderBottom: '1px solid #fecaca'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <AlertTriangle size={20} style={{ color: '#fff' }} />
+              </div>
+              <div>
+                <h2 style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: '#991b1b',
+                  margin: '0 0 4px 0'
+                }}>Danger Zone</h2>
+                <p style={{ margin: 0, color: '#dc2626', fontSize: '0.875rem' }}>Tindakan bersifat permanen dan tidak dapat dibatalkan</p>
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-red-700 mt-1">Tindakan bersifat permanen dan tidak dapat dibatalkan</p>
           </div>
 
-          <div className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <Trash2 size={24} className="text-red-600" />
+          <div style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 4px 12px -4px rgba(220, 38, 38, 0.2)'
+              }}>
+                <Trash2 size={28} style={{ color: '#dc2626' }} />
               </div>
-              
-              <div className="flex-1 min-w-0 w-full">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Reset Semua Data</h3>
-                <p className="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed">
-                  Menghapus <strong>semua data kandidat, penilaian, dan kategori soal</strong> dari sistem. 
+
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  margin: '0 0 12px 0'
+                }}>Reset Semua Data</h3>
+                <p style={{
+                  color: '#64748b',
+                  fontSize: '0.95rem',
+                  margin: '0 0 20px 0',
+                  lineHeight: 1.6
+                }}>
+                  Menghapus <strong style={{ color: '#dc2626' }}>semua data kandidat, penilaian, dan kategori soal</strong> dari sistem.
                   Data user tidak akan dihapus.
                 </p>
-                
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="text-red-600 mt-0.5 flex-shrink-0 sm:w-4 sm:h-4" />
-                    <p className="text-xs sm:text-sm text-red-800 leading-relaxed">
+
+                <div style={{
+                  background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                  border: '1px solid #fecaca',
+                  borderRadius: '12px',
+                  padding: '16px 20px',
+                  marginBottom: '24px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <AlertTriangle size={18} style={{ color: '#dc2626', marginTop: '2px', flexShrink: 0 }} />
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#991b1b', lineHeight: 1.5 }}>
                       <strong>Peringatan:</strong> Tindakan ini tidak dapat dibatalkan! Pastikan backup data penting terlebih dahulu.
                     </p>
                   </div>
                 </div>
-                
-                <button
+
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowResetModal(true)}
-                  className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-sm hover:shadow-md text-sm sm:text-base"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '14px 28px',
+                    background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    boxShadow: '0 8px 24px -6px rgba(220, 38, 38, 0.4)'
+                  }}
                 >
-                  <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <Trash2 size={18} />
                   Reset Semua Data
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
@@ -119,22 +261,47 @@ export default function Settings() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl border border-blue-200 p-4 sm:p-6"
+          style={{
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            borderRadius: '24px',
+            border: '1px solid #bfdbfe',
+            padding: '28px 32px'
+          }}
         >
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <SettingsIcon size={18} className="text-blue-600 sm:w-5 sm:h-5" />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              borderRadius: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 8px 20px -6px rgba(59, 130, 246, 0.3)'
+            }}>
+              <SettingsIcon size={26} style={{ color: '#fff' }} />
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">Informasi Sistem</h3>
-              <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">
-                Halaman ini menyediakan pengaturan tingkat sistem yang hanya dapat diakses oleh Administrator. 
+            <div>
+              <h3 style={{
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                color: '#1e40af',
+                margin: '0 0 8px 0'
+              }}>Informasi Sistem</h3>
+              <p style={{
+                fontSize: '0.95rem',
+                color: '#3b82f6',
+                margin: 0,
+                lineHeight: 1.6
+              }}>
+                Halaman ini menyediakan pengaturan tingkat sistem yang hanya dapat diakses oleh Administrator.
                 Pastikan Anda memahami dampak dari setiap tindakan sebelum melanjutkan.
               </p>
             </div>
           </div>
         </motion.div>
-      </motion.div>
+      </div>
 
       <ConfirmModal
         isOpen={showResetModal}
@@ -147,6 +314,6 @@ export default function Settings() {
         type="danger"
         loading={isResetting}
       />
-    </div>
+    </motion.div>
   );
 }

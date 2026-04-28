@@ -52,13 +52,15 @@ Sistem manajemen rekrutmen modern berbasis web untuk mengelola kandidat, penilai
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18 + Vite
+- **Frontend**: React 19 + Vite 8
 - **UI Framework**: Tailwind CSS
 - **Animation**: Framer Motion
 - **Database**: Firebase Firestore
 - **Icons**: Lucide React
 - **Notifications**: React Hot Toast
 - **Routing**: React Router DOM
+- **PWA**: vite-plugin-pwa + Workbox
+- **Testing**: Vitest + React Testing Library
 
 ## 📦 Instalasi
 
@@ -86,6 +88,20 @@ npm run dev
 
 5. Buka browser di `http://localhost:5173`
 
+## 📱 PWA Installation
+
+Aplikasi ini mendukung Progressive Web App (PWA):
+
+1. **Desktop**: Klik icon install di address bar browser
+2. **Mobile**: Buka menu browser → "Add to Home Screen"
+3. **Offline**: Service worker akan cache assets untuk akses offline
+
+**PWA Features**:
+- ✅ Install as standalone app
+- ✅ Offline support with service worker
+- ✅ Auto-update on new version
+- ✅ Mobile-optimized with bottom navigation
+
 ## 🧪 Testing
 
 Project ini menggunakan **Test-Driven Development (TDD)** dengan Vitest:
@@ -101,9 +117,10 @@ npm run test:run
 npm run test:coverage
 ```
 
-**Test Coverage**: 45 tests passing
+**Test Coverage**: 49 tests passing
 - ✅ Utility functions (27 tests)
 - ✅ Database functions (18 tests)
+- ✅ Bottom Navigation component (4 tests)
 - ✅ 100% coverage for critical business logic
 
 Lihat [TESTING.md](./TESTING.md) untuk panduan lengkap testing.
@@ -142,7 +159,9 @@ frontend/
 
 ## 🎨 Fitur UI/UX
 
-- **Responsive Design**: Mobile-first approach
+- **Responsive Design**: Mobile-first approach with bottom navigation
+- **PWA Support**: Install as mobile app with offline capabilities
+- **Bottom Navigation**: Touch-friendly navigation for mobile devices
 - **Dark Mode Ready**: Theme toggle support
 - **Smooth Animations**: Framer Motion transitions
 - **Modern UI**: Gradient cards, glassmorphism effects
