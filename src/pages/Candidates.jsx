@@ -8,6 +8,7 @@ import DataTable from '../components/ui/DataTable';
 import FilterPanel from '../components/ui/FilterPanel';
 import BentoCard from '../components/ui/BentoCard';
 import ModernModal from '../components/ModernModal';
+import ConfirmModal from '../components/ConfirmModal';
 import { staggerContainer, staggerItem } from '../utils/animations';
 import { exportCandidatesToExcel } from '../utils/exportUtils';
 
@@ -37,10 +38,9 @@ const columns = [
 const filterDefinitions = [
   { key: 'search', type: 'text', label: 'Search', placeholder: 'Cari nama, divisi, posisi...' },
   { key: 'divisi', type: 'select', label: 'Divisi', options: [
-    { value: 'IT', label: 'IT' },
-    { value: 'HR', label: 'HR' },
-    { value: 'Finance', label: 'Finance' },
-    { value: 'Marketing', label: 'Marketing' }
+    { value: 'Busdev', label: 'Busdev' },
+    { value: 'Keuangan', label: 'Keuangan' },
+    { value: 'Operasi', label: 'Operasi' }
   ]},
   { key: 'status', type: 'select', label: 'Status', options: [
     { value: 'Lulus', label: 'Lulus' },
@@ -50,6 +50,18 @@ const filterDefinitions = [
   ]}
 ];
 
+// Utility function untuk format gaji dengan titik setiap seribu
+const formatSalary = (value) => {
+  if (!value) return '';
+  const numValue = value.replace(/\D/g, '');
+  return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+// Utility function untuk parse gaji (hapus titik)
+const parseSalary = (value) => {
+  return value.replace(/\./g, '');
+};
+
 export default function Candidates() {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +70,9 @@ export default function Candidates() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     nama: '',
     posisi: '',
@@ -113,20 +128,30 @@ export default function Candidates() {
   }, [candidates, searchQuery, filters]);
 
   const handleDelete = async (candidate) => {
-    if (!confirm(`Hapus kandidat ${candidate.nama}?`)) return;
-    
+    setShowDeleteConfirm(candidate);
+  };
+
+  const confirmDelete = async () => {
+    if (!showDeleteConfirm) return;
+    setDeleting(true);
     try {
-      await deleteCandidate(candidate.id);
-      setCandidates(prev => prev.filter(c => c.id !== candidate.id));
+      await deleteCandidate(showDeleteConfirm.id);
+      setCandidates(prev => prev.filter(c => c.id !== showDeleteConfirm.id));
       success('Kandidat berhasil dihapus');
     } catch (err) {
       error('Gagal menghapus kandidat');
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(null);
     }
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Hapus ${selectedIds.length} kandidat terpilih?`)) return;
-    
+    setShowBulkDeleteConfirm(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    setDeleting(true);
     try {
       await Promise.all(selectedIds.map(id => deleteCandidate(id)));
       setCandidates(prev => prev.filter(c => !selectedIds.includes(c.id)));
@@ -134,6 +159,9 @@ export default function Candidates() {
       success(`${selectedIds.length} kandidat berhasil dihapus`);
     } catch (err) {
       error('Gagal menghapus kandidat');
+    } finally {
+      setDeleting(false);
+      setShowBulkDeleteConfirm(false);
     }
   };
 
@@ -576,24 +604,30 @@ export default function Candidates() {
             </div>
             <div className="modal-field">
               <label>Posisi <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input
-                className="modal-input"
-                type="text"
+              <select
+                className="modal-select"
                 value={formData.posisi}
                 onChange={(e) => setFormData(prev => ({ ...prev, posisi: e.target.value }))}
-                placeholder="Contoh: Staff Operasional"
                 required
-              />
+              >
+                <option value="">Pilih Posisi</option>
+                <option value="Staff Operasi">Staff Operasi</option>
+                <option value="Staff Keuangan">Staff Keuangan</option>
+                <option value="General Affair">General Affair</option>
+                <option value="Dapur">Dapur</option>
+              </select>
             </div>
             <div className="modal-field">
               <label>Penempatan</label>
-              <input
-                className="modal-input"
-                type="text"
+              <select
+                className="modal-select"
                 value={formData.penempatan}
                 onChange={(e) => setFormData(prev => ({ ...prev, penempatan: e.target.value }))}
-                placeholder="Lokasi / cabang penempatan"
-              />
+              >
+                <option value="">Pilih Penempatan</option>
+                <option value="Jabodetabek">Jabodetabek</option>
+                <option value="IKN">IKN</option>
+              </select>
             </div>
             <div className="modal-field">
               <label>Divisi</label>
@@ -603,10 +637,9 @@ export default function Candidates() {
                 onChange={(e) => setFormData(prev => ({ ...prev, divisi: e.target.value }))}
               >
                 <option value="">Pilih Divisi</option>
-                <option value="IT">IT</option>
-                <option value="HR">HR</option>
-                <option value="Finance">Finance</option>
-                <option value="Marketing">Marketing</option>
+                <option value="Busdev">Busdev</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="Operasi">Operasi</option>
               </select>
             </div>
           </div>
@@ -620,10 +653,10 @@ export default function Candidates() {
                 className="modal-input"
                 type="text"
                 value={formData.budget_salary}
-                onChange={(e) => setFormData(prev => ({ ...prev, budget_salary: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, budget_salary: formatSalary(e.target.value) }))}
                 placeholder="Contoh: 5.000.000 - 7.000.000"
               />
-              <span className="modal-helper">Rentang gaji yang disepakati dengan hiring manager.</span>
+              <span className="modal-helper">Rentang gaji yang disepakati dengan hiring manager. Format: 5.000.000 - 7.000.000</span>
             </div>
           </div>
 
@@ -654,6 +687,32 @@ export default function Candidates() {
           </div>
         </form>
       </ModernModal>
+
+      {/* Delete Single Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!showDeleteConfirm}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(null)}
+        title="Hapus Kandidat"
+        message={`Apakah Anda yakin ingin menghapus kandidat "${showDeleteConfirm?.nama}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        type="danger"
+        loading={deleting}
+      />
+
+      {/* Delete Bulk Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showBulkDeleteConfirm}
+        onConfirm={confirmBulkDelete}
+        onCancel={() => setShowBulkDeleteConfirm(false)}
+        title="Hapus Kandidat Terpilih"
+        message={`Apakah Anda yakin ingin menghapus ${selectedIds.length} kandidat terpilih? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus Semua"
+        cancelText="Batal"
+        type="danger"
+        loading={deleting}
+      />
     </motion.div>
   );
 }

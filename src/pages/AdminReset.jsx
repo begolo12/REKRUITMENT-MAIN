@@ -2,17 +2,20 @@ import { useState } from 'react';
 import { deleteDoc, doc, getDocs, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ensureDefaultAdmin } from '../services/db';
+import ConfirmModal from '../components/ConfirmModal';
+import toast from 'react-hot-toast';
 
 export default function AdminReset() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleResetDatabase = async () => {
-    if (!window.confirm('⚠️ Ini akan menghapus SEMUA users dari database dan membuat admin user baru. Lanjutkan?')) {
-      return;
-    }
+    setShowConfirm(true);
+  };
 
+  const confirmReset = async () => {
     setLoading(true);
     setMessage('');
     setError('');
@@ -30,11 +33,14 @@ export default function AdminReset() {
       console.log('✅ Created default admin user');
 
       setMessage('✅ Database reset berhasil! Admin user telah dibuat dengan:\n- Username: admin\n- Password: admin123');
+      toast.success('Database reset berhasil!');
     } catch (err) {
       console.error('❌ Error:', err);
       setError('❌ Error: ' + err.message);
+      toast.error('Gagal reset database');
     } finally {
       setLoading(false);
+      setShowConfirm(false);
     }
   };
 
@@ -95,6 +101,19 @@ export default function AdminReset() {
           {error}
         </div>
       )}
+
+      {/* Reset Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showConfirm}
+        onConfirm={confirmReset}
+        onCancel={() => setShowConfirm(false)}
+        title="Reset Database"
+        message="⚠️ Ini akan menghapus SEMUA users dari database dan membuat admin user baru. Tindakan ini tidak dapat dibatalkan!"
+        confirmText="Ya, Reset Database"
+        cancelText="Batal"
+        type="danger"
+        loading={loading}
+      />
     </div>
   );
 }

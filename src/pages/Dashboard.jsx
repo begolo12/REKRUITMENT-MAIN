@@ -473,9 +473,9 @@ export default function Dashboard() {
         variants={staggerContainer}
         style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 'var(--space-4)',
-          marginBottom: 'var(--space-6)'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '16px',
+          marginBottom: '32px'
         }}
       >
         <QuickAction 
@@ -503,8 +503,8 @@ export default function Dashboard() {
         variants={staggerContainer}
         style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '24px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '16px',
           marginBottom: '32px'
         }}
       >

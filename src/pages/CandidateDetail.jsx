@@ -9,6 +9,7 @@ import {
 import { getCandidate, deleteCandidate } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import BentoCard from '../components/ui/BentoCard';
+import ConfirmModal from '../components/ConfirmModal';
 import { staggerContainer, staggerItem } from '../utils/animations';
 
 const tabs = [
@@ -32,6 +33,8 @@ export default function CandidateDetail() {
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadCandidate();
@@ -49,14 +52,16 @@ export default function CandidateDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Apakah Anda yakin ingin menghapus kandidat ini?')) return;
-    
+    setDeleting(true);
     try {
       await deleteCandidate(id);
       success('Kandidat berhasil dihapus');
       navigate('/candidates');
     } catch (err) {
       error('Gagal menghapus kandidat');
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -294,7 +299,7 @@ export default function CandidateDetail() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={handleDelete}
+                onClick={() => setShowDeleteConfirm(true)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -448,6 +453,19 @@ export default function CandidateDetail() {
           </BentoCard>
         )}
       </motion.div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+        title="Hapus Kandidat"
+        message={`Apakah Anda yakin ingin menghapus kandidat "${candidate?.nama}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        type="danger"
+        loading={deleting}
+      />
     </motion.div>
   );
 }

@@ -89,6 +89,7 @@ export default function Users() {
     const role = r?.toLowerCase();
     if (role === 'admin') return 'badge b-no';
     if (role === 'hr') return 'badge b-info';
+    if (role === 'direktur') return 'badge b-wait';
     if (role === 'manager') return 'badge b-wait';
     return 'badge b-ok';
   };
@@ -303,8 +304,8 @@ export default function Users() {
                       borderRadius: '999px',
                       fontWeight: 600,
                       fontSize: '0.75rem',
-                      background: u.role?.toLowerCase() === 'admin' ? '#fee2e2' : u.role?.toLowerCase() === 'hr' ? '#dbeafe' : u.role?.toLowerCase() === 'manager' ? '#fef3c7' : '#d1fae5',
-                      color: u.role?.toLowerCase() === 'admin' ? '#dc2626' : u.role?.toLowerCase() === 'hr' ? '#2563eb' : u.role?.toLowerCase() === 'manager' ? '#d97706' : '#059669'
+                      background: u.role?.toLowerCase() === 'admin' ? '#fee2e2' : u.role?.toLowerCase() === 'hr' ? '#dbeafe' : u.role?.toLowerCase() === 'direktur' ? '#f3e8ff' : u.role?.toLowerCase() === 'manager' ? '#fef3c7' : '#d1fae5',
+                      color: u.role?.toLowerCase() === 'admin' ? '#dc2626' : u.role?.toLowerCase() === 'hr' ? '#2563eb' : u.role?.toLowerCase() === 'direktur' ? '#7c3aed' : u.role?.toLowerCase() === 'manager' ? '#d97706' : '#059669'
                     }}>
                       <span style={{
                         width: '6px',
@@ -428,6 +429,7 @@ export default function Users() {
               <select className="fi fi-select" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                 <option value="user">User</option>
                 <option value="hr">HR</option>
+                <option value="direktur">Direktur</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
               </select>

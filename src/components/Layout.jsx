@@ -24,7 +24,10 @@ export default function Layout() {
   const role = user?.role?.toLowerCase();
   const isAdmin = role === 'admin';
   const isHR = role === 'hr';
+  const isDirektur = role === 'direktur';
+  const isManager = role === 'manager';
   const isAdminOrHR = isAdmin || isHR;
+  const isAdminOrHROrDirekturOrManager = isAdmin || isHR || isDirektur || isManager;
 
   const menu = [
     { label: 'MENU', items: [
@@ -33,7 +36,7 @@ export default function Layout() {
       { to: '/my-assessments', icon: <ClipboardList size={20} />, text: 'Penilaian Saya' },
     ]},
     { label: 'LAPORAN', items: [
-      { to: '/rekap', icon: <BarChart3 size={20} />, text: 'Rekap Nilai', show: isAdminOrHR },
+      { to: '/rekap', icon: <BarChart3 size={20} />, text: 'Rekap Nilai', show: isAdminOrHROrDirekturOrManager },
     ]},
     { label: 'PENGATURAN', items: [
       { to: '/users', icon: <Briefcase size={20} />, text: 'Kelola User', show: isAdmin },

@@ -1,4 +1,6 @@
 import { Play, Pause, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import ConfirmModal from '../ConfirmModal';
 
 /**
  * Timer Component untuk wawancara
@@ -10,6 +12,8 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
  * @param {Function} props.onReset - Callback saat timer di-reset
  */
 export function Timer({ formattedTime, isRunning, status, onToggle, onReset }) {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   // Get styles berdasarkan status
   const getContainerStyles = () => {
     const baseStyles = {
@@ -56,39 +60,54 @@ export function Timer({ formattedTime, isRunning, status, onToggle, onReset }) {
   // Handle right-click untuk reset
   const handleContextMenu = (e) => {
     e.preventDefault();
-    if (window.confirm('Apakah Anda yakin ingin mereset timer?')) {
-      onReset();
-    }
+    setShowResetConfirm(true);
   };
 
   return (
-    <div
-      style={getContainerStyles()}
-      onClick={onToggle}
-      onContextMenu={handleContextMenu}
-      title="Klik untuk pause/play, right-click untuk reset"
-      role="button"
-      aria-label={`Waktu wawancara: ${formattedTime}. Klik untuk ${isRunning ? 'pause' : 'play'}`}
-    >
-      <span style={{ 
-        fontSize: '0.9rem',
-        display: 'flex',
-        alignItems: 'center',
-      }}>
-        {isRunning ? (
-          <Pause size={16} style={{ opacity: 0.7 }} />
-        ) : (
-          <Play size={16} style={{ opacity: 0.7 }} />
-        )}
-      </span>
-      <span style={{ 
-        letterSpacing: '0.5px',
-        minWidth: '70px',
-        textAlign: 'center',
-      }}>
-        {formattedTime}
-      </span>
-    </div>
+    <>
+      <div
+        style={getContainerStyles()}
+        onClick={onToggle}
+        onContextMenu={handleContextMenu}
+        title="Klik untuk pause/play, right-click untuk reset"
+        role="button"
+        aria-label={`Waktu wawancara: ${formattedTime}. Klik untuk ${isRunning ? 'pause' : 'play'}`}
+      >
+        <span style={{ 
+          fontSize: '0.9rem',
+          display: 'flex',
+          alignItems: 'center',
+        }}>
+          {isRunning ? (
+            <Pause size={16} style={{ opacity: 0.7 }} />
+          ) : (
+            <Play size={16} style={{ opacity: 0.7 }} />
+          )}
+        </span>
+        <span style={{ 
+          letterSpacing: '0.5px',
+          minWidth: '70px',
+          textAlign: 'center',
+        }}>
+          {formattedTime}
+        </span>
+      </div>
+
+      {/* Reset Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onConfirm={() => {
+          onReset();
+          setShowResetConfirm(false);
+        }}
+        onCancel={() => setShowResetConfirm(false)}
+        title="Reset Timer"
+        message="Apakah Anda yakin ingin mereset timer?"
+        confirmText="Ya, Reset"
+        cancelText="Batal"
+        type="warning"
+      />
+    </>
   );
 }
 

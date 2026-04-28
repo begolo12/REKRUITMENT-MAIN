@@ -4,6 +4,13 @@ import { createCandidate } from '../services/db';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Utility function untuk format gaji dengan titik setiap seribu
+const formatSalary = (value) => {
+  if (!value) return '';
+  const numValue = value.replace(/\D/g, '');
+  return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
 export default function AddCandidate() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -57,22 +64,37 @@ export default function AddCandidate() {
             <div className="form-row">
               <div className="fg">
                 <label>Posisi *</label>
-                <input className="fi" name="posisi" value={form.posisi} onChange={handleChange} placeholder="Contoh: Staff Operasi" />
+                <select className="fi fi-select" name="posisi" value={form.posisi} onChange={handleChange} required>
+                  <option value="">Pilih Posisi</option>
+                  <option value="Staff Operasi">Staff Operasi</option>
+                  <option value="Staff Keuangan">Staff Keuangan</option>
+                  <option value="General Affair">General Affair</option>
+                  <option value="Dapur">Dapur</option>
+                </select>
               </div>
               <div className="fg">
                 <label>Divisi</label>
-                <input className="fi" name="divisi" value={form.divisi} onChange={handleChange} placeholder="Contoh: Operasi" />
+                <select className="fi fi-select" name="divisi" value={form.divisi} onChange={handleChange}>
+                  <option value="">Pilih Divisi</option>
+                  <option value="Busdev">Busdev</option>
+                  <option value="Keuangan">Keuangan</option>
+                  <option value="Operasi">Operasi</option>
+                </select>
               </div>
             </div>
 
             <div className="form-row">
               <div className="fg">
                 <label>Penempatan</label>
-                <input className="fi" name="penempatan" value={form.penempatan} onChange={handleChange} placeholder="Contoh: IKN - Kalimantan Timur" />
+                <select className="fi fi-select" name="penempatan" value={form.penempatan} onChange={handleChange}>
+                  <option value="">Pilih Penempatan</option>
+                  <option value="Jabodetabek">Jabodetabek</option>
+                  <option value="IKN">IKN</option>
+                </select>
               </div>
               <div className="fg">
                 <label>Budget Salary</label>
-                <input className="fi" name="budget_salary" value={form.budget_salary} onChange={handleChange} placeholder="Contoh: Range 4 JT - 4,8 JT" />
+                <input className="fi" name="budget_salary" value={form.budget_salary} onChange={(e) => setForm({ ...form, budget_salary: formatSalary(e.target.value) })} placeholder="Contoh: 5.000.000 - 7.000.000" />
               </div>
             </div>
 
