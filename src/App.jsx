@@ -17,6 +17,7 @@ import MyAssessments from './pages/MyAssessments';
 import Rekap from './pages/Rekap';
 import Users from './pages/Users';
 import Questions from './pages/Questions';
+import AdminReset from './pages/AdminReset';
 
 function Private({ children }) {
   const { user, loading } = useAuth();
@@ -55,6 +56,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/admin-reset" element={<AdminReset />} />
       <Route path="/" element={<Private><Layout /></Private>}>
         <Route index element={<Dashboard />} />
         <Route path="candidates" element={<Candidates />} />

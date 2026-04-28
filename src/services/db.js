@@ -20,15 +20,31 @@ export function clearCategoriesCache() {
 }
 
 // Simple hash function for passwords (in production, use bcrypt)
-function hashPassword(password) {
-  // This is a basic hash - in production use proper bcrypt
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+// Using consistent hashing algorithm that works across environments
+async function hashPassword(password) {
+  // Use SubtleCrypto for consistent hashing across all environments
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return 'sha256_' + hashHex;
+}
+
+// Check if password is using old hash format (for migration)
+function isOldHashFormat(hash) {
+  return hash && hash.startsWith('hash_');
+}
+
+// Migrate old password hash to new format if needed
+async function migratePasswordIfNeeded(user, plainPassword) {
+  if (isOldHashFormat(user.password)) {
+    console.log('🔄 Migrating password hash for user:', user.username);
+    const newHash = await hashPassword(plainPassword);
+    await updateDoc(doc(db, 'users', user.id), { password: newHash });
+    return newHash;
   }
-  return 'hash_' + Math.abs(hash).toString(16);
+  return user.password;
 }
 
 // ==================== DEFAULT ADMIN SETUP ====================
@@ -47,10 +63,6 @@ export async function ensureDefaultAdmin() {
     invalidate('users');
     const users = await getUsers();
     
-    console.log('🔍 Checking for admin user. Total users:', users.lengthirestore (bypass cache)
-    invalidate('users');
-    const users = await getUsers();
-    
     console.log('🔍 Checking for admin user. Total users:', users.length);
     
     // Check if admin user already exists
@@ -59,9 +71,10 @@ export async function ensureDefaultAdmin() {
     if (!adminExists) {
       console.log('🔧 Creating default admin user...');
       // Create admin directly using addDoc to avoid circular dependency
+      const hashedPassword = await hashPassword(DEFAULT_ADMIN.password);
       const ref = await addDoc(collection(db, 'users'), {
         username: DEFAULT_ADMIN.username.toLowerCase().trim(),
-        password: hashPassword(DEFAULT_ADMIN.password),
+        password: hashedPassword,
         full_name: DEFAULT_ADMIN.full_name.trim(),
         role: DEFAULT_ADMIN.role,
         created_at: serverTimestamp()
@@ -155,9 +168,10 @@ export async function getCandidate(id) {
 // ==================== WRITE OPERATIONS (invalidate cache) ====================
 
 export async function createUser(data) {
+  const hashedPassword = await hashPassword(data.password);
   const ref = await addDoc(collection(db, 'users'), {
     username: data.username.toLowerCase().trim(),
-    password: hashPassword(data.password),
+    password: hashedPassword,
     full_name: data.full_name.trim(),
     role: data.role || 'user',
     created_at: serverTimestamp()
@@ -170,7 +184,7 @@ export async function updateUser(id, data) {
   // Hash password if it's being updated
   const updateData = { ...data };
   if (data.password) {
-    updateData.password = hashPassword(data.password);
+    updateData.password = await hashPassword(data.password);
   }
   await updateDoc(doc(db, 'users', id), updateData);
   invalidate('users');
@@ -188,15 +202,22 @@ export async function validateUser(username, password) {
     return null;
   }
   
-  const hashedInput = hashPassword(password);
+  // Migrate old hash format if needed
+  let storedHash = user.password;
+  if (isOldHashFormat(storedHash)) {
+    console.log('🔄 Detected old password format, migrating...');
+    storedHash = await migratePasswordIfNeeded(user, password);
+  }
+  
+  const hashedInput = await hashPassword(password);
   console.log('🔑 Password check:', { 
     input: password, 
     hashedInput: hashedInput, 
-    storedHash: user.password,
-    match: user.password === hashedInput 
+    storedHash: storedHash,
+    match: storedHash === hashedInput 
   });
   
-  if (user.password !== hashedInput) {
+  if (storedHash !== hashedInput) {
     console.log('❌ Password mismatch');
     return null;
   }
