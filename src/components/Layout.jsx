@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Users, ClipboardList,
-  BarChart3, HelpCircle, LogOut, Pin, PinOff, Menu, X, Briefcase, Settings as SettingsIcon
+  BarChart3, HelpCircle, LogOut, Pin, PinOff, Menu, X, Briefcase, Settings as SettingsIcon,
+  ArrowLeft
 } from 'lucide-react';
 import BottomNav from './BottomNav';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
@@ -41,10 +43,16 @@ export default function Layout() {
     ]},
     { label: 'PENGATURAN', items: [
       { to: '/users', icon: <Briefcase size={20} />, text: 'Kelola User', show: isAdmin },
-      { to: '/questions', icon: <HelpCircle size={20} />, text: 'Kelola Soal', show: isAdminOrHR },
-      { to: '/settings', icon: <SettingsIcon size={20} />, text: 'Pengaturan', show: isAdmin },
+      { to: '/questions', icon: <HelpCircle size={20} />, text: 'Kelola Soal', show: isAdminOrHROrDirekturOrManager },
+      { to: '/settings', icon: <SettingsIcon size={20} />, text: 'Pengaturan', show: isAdminOrHROrDirekturOrManager },
     ]},
   ];
+
+  const showBackButton = location.pathname !== '/';
+
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   const pageTitle = () => {
     const p = location.pathname;
@@ -65,11 +73,13 @@ export default function Layout() {
       {mobOpen && <div className="sb-overlay show" onClick={() => setMobOpen(false)} />}
       
       <aside
+        id="sidebar"
         className={`sidebar${expanded ? ' expanded' : ''}${mobOpen ? ' mob-open' : ''}`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         role="navigation"
-        aria-label="Menu navigasi utama"
+        aria-label="Menu navigasi"
+        aria-hidden={!mobOpen}
       >
         <div className="sb-brand">
           <div className="sb-logo" aria-hidden="true">
@@ -139,24 +149,48 @@ export default function Layout() {
         </div>
       </aside>
 
+      {/* Skip to main content link for keyboard navigation */}
+      <a href="#main-content" className="skip-link">
+        Lewati ke konten utama
+      </a>
+
       <div className={`main${pinned ? ' shifted' : ''}`}>
         <header className="topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+            {showBackButton && (
+              <button
+                className="back-btn"
+                onClick={handleBack}
+                aria-label="Kembali ke halaman sebelumnya"
+                title="Kembali"
+              >
+                <ArrowLeft size={22} aria-hidden="true" />
+              </button>
+            )}
             <button
               className="mob-toggle"
               onClick={() => setMobOpen(!mobOpen)}
               aria-label={mobOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
               aria-expanded={mobOpen}
+              aria-controls="sidebar"
             >
               {mobOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
-            <h2>{pageTitle()}</h2>
+            <h2 className="topbar-title" id="page-title">{pageTitle()}</h2>
           </div>
           <div className="topbar-right">
-            <span className="user-name">{user?.full_name}</span>
+            <span className="user-name" aria-label={`Pengguna: ${user?.full_name}`}>
+              {user?.full_name}
+            </span>
           </div>
         </header>
-        <main className="content" key={routeKey}>
+        <main 
+          id="main-content" 
+          className="content" 
+          key={routeKey}
+          tabIndex={-1}
+          aria-labelledby="page-title"
+        >
           <Outlet />
         </main>
       </div>

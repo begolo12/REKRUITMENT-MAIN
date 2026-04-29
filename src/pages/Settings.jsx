@@ -17,7 +17,12 @@ export default function Settings() {
   const [isImporting, setIsImporting] = useState(false);
   const isMobile = useIsMobile();
 
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const role = user?.role?.toLowerCase();
+  const isAdminOrHROrDirekturOrManager = 
+    role === 'admin' || 
+    role === 'hr' || 
+    role === 'direktur' || 
+    role === 'manager';
 
   const handleResetAllData = async () => {
     setIsResetting(true);
@@ -68,7 +73,7 @@ export default function Settings() {
     }
   };
 
-  if (!isAdmin) {
+  if (!isAdminOrHROrDirekturOrManager) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -104,7 +109,7 @@ export default function Settings() {
             color: '#0f172a',
             marginBottom: '12px'
           }}>Akses Ditolak</h2>
-          <p style={{ color: '#64748b', fontSize: '1rem' }}>Hanya Admin yang dapat mengakses halaman ini.</p>
+          <p style={{ color: '#64748b', fontSize: '1rem' }}>Hanya Admin, HR, Direktur, dan Manager yang dapat mengakses halaman ini.</p>
         </div>
       </motion.div>
     );

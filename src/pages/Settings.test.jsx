@@ -108,7 +108,7 @@ describe('Settings - Mobile Responsiveness', () => {
     it('should show access denied for non-admin users', () => {
       renderSettings();
       expect(screen.getByText('Akses Ditolak')).toBeInTheDocument();
-      expect(screen.getByText('Hanya Admin yang dapat mengakses halaman ini.')).toBeInTheDocument();
+      expect(screen.getByText('Hanya Admin, HR, Direktur, dan Manager yang dapat mengakses halaman ini.')).toBeInTheDocument();
     });
 
     it('should have responsive access denied card', () => {
