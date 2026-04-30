@@ -397,6 +397,9 @@ body {
 .modal-textarea {
   width: 100%;
   padding: 12px 14px;
+  min-height: 48px; /* Touch target */
+  line-height: 1.2;
+  display: block;
   border-radius: var(--radius-md);
   border: 1px solid rgba(148, 163, 184, 0.6);
   background: rgba(255,255,255,0.9);
@@ -404,6 +407,8 @@ body {
   font-family: inherit;
   color: var(--text-primary);
   transition: border var(--transition-fast), box-shadow var(--transition-fast);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .modal-input:focus,

@@ -28,8 +28,17 @@ export default function Rekap() {
     return fullName.split(' ')[0];
   };
 
-  // Collect all unique role labels
-  const allRoles = [...new Set(data.flatMap(c => Object.keys(c.scores_by_role || {})))].sort();
+  // Collect all unique role labels dengan urutan yang sesuai Excel
+  const roleOrder = ['DIREKTUR', 'DIREKTUR DJP', 'DIREKTUR GAS', 'MANAGER OPERASI', 'HR', 'ADMIN'];
+  const allRoles = [...new Set(data.flatMap(c => Object.keys(c.scores_by_role || {})))]
+    .sort((a, b) => {
+      const indexA = roleOrder.indexOf(a);
+      const indexB = roleOrder.indexOf(b);
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return a.localeCompare(b);
+    });
 
   const generatePDF = () => {
     let headerCols = '<th>No</th><th>Nama</th><th>Posisi</th><th>Penempatan</th>';
@@ -76,6 +85,186 @@ export default function Rekap() {
 
   if (loading) return <SkeletonList />;
 
+  // Mobile card layout
+  if (isMobile) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.175, 0.885, 0.32, 1.275] }}
+        style={{ padding: 0 }}
+      >
+        {/* Mobile Header */}
+        <div style={{ 
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%)',
+          borderRadius: '16px',
+          padding: '20px',
+          marginBottom: '20px',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px -20px rgba(15, 23, 42, 0.3)',
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '-50%',
+            right: '-10%',
+            width: '200px',
+            height: '200px',
+            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <h1 style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: 800, 
+              margin: '0 0 8px 0',
+              color: '#fff',
+              letterSpacing: '-0.02em'
+            }}>
+              Rekap Penilaian
+            </h1>
+            <p style={{ 
+              margin: 0, 
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '0.9rem'
+            }}>
+              {data.length} kandidat
+            </p>
+          </div>
+        </div>
+
+        {/* Mobile Cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {data.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 20px' }}>
+              Belum ada data
+            </div>
+          ) : data.map((c, i) => (
+            <motion.div
+              key={c.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              style={{
+                background: '#ffffff',
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: '0 4px 12px -4px rgba(15, 23, 42, 0.08)',
+                border: '1px solid rgba(226, 232, 240, 0.6)'
+              }}
+            >
+              {/* Candidate Header */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    fontSize: '1rem'
+                  }}>
+                    {c.nama?.charAt(0)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.95rem' }}>
+                      {c.nama}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      {c.divisi}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '8px' }}>
+                  <div>{c.posisi}</div>
+                  <div style={{ color: '#94a3b8', marginTop: '2px' }}>{c.penempatan}</div>
+                </div>
+              </div>
+
+              {/* Scores Grid */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gap: '12px',
+                marginBottom: '16px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid #f1f5f9'
+              }}>
+                {allRoles.map(r => {
+                  const s = c.scores_by_role?.[r];
+                  return (
+                    <div key={r} style={{
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px', fontWeight: '500' }}>
+                        {r}
+                      </div>
+                      {s ? (
+                        <>
+                          <div style={{
+                            fontSize: '1.1rem',
+                            fontWeight: '700',
+                            color: s.score >= 70 ? '#166534' : s.score >= 60 ? '#92400e' : '#991b1b',
+                            marginBottom: '2px'
+                          }}>
+                            {s.score.toFixed(2)}
+                          </div>
+                          <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                            {getFirstName(s.name)}
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ color: '#cbd5e1', fontWeight: '500' }}>-</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Average & Status */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>
+                    Rata-rata
+                  </div>
+                  <div style={{
+                    fontSize: '1.3rem',
+                    fontWeight: '700',
+                    color: c.avg_score >= 70 ? '#166534' : c.avg_score >= 60 ? '#92400e' : '#991b1b'
+                  }}>
+                    {c.avg_score.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    background: c.status === 'Lulus' ? '#dcfce7' : c.status === 'Lulus dengan Catatan' ? '#fef3c7' : c.status === 'Tidak Lulus' ? '#fee2e2' : '#f3f4f6',
+                    color: c.status === 'Lulus' ? '#166534' : c.status === 'Lulus dengan Catatan' ? '#92400e' : c.status === 'Tidak Lulus' ? '#991b1b' : '#6b7280'
+                  }}>
+                    {c.status}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Desktop table layout
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -158,7 +347,7 @@ export default function Rekap() {
       <div style={{
         background: '#ffffff',
         borderRadius: isMobile ? '16px' : '24px',
-        padding: '28px',
+        padding: isMobile ? '16px' : '28px',
         boxShadow: '0 4px 20px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
         border: '1px solid rgba(226, 232, 240, 0.6)'
       }}>
@@ -166,11 +355,11 @@ export default function Rekap() {
           table { width: 100%; border-collapse: collapse; }
           thead tr { background: #f8fafc; }
           th { 
-            padding: 14px 12px; 
+            padding: 12px 10px; 
             text-align: left; 
             font-weight: 600; 
             color: #475569; 
-            font-size: 0.85rem; 
+            font-size: 0.8rem; 
             border-bottom: 2px solid #e2e8f0;
             white-space: nowrap;
           }
@@ -178,9 +367,9 @@ export default function Rekap() {
           tbody tr { border-bottom: 1px solid #f1f5f9; }
           tbody tr:hover { background: #f8fafc; }
           td { 
-            padding: 14px 12px; 
+            padding: 12px 10px; 
             vertical-align: middle;
-            min-height: 60px;
+            height: 70px;
             display: table-cell;
           }
           td[style*="text-align: center"] { text-align: center; }
@@ -211,20 +400,26 @@ export default function Rekap() {
             font-weight: 700;
             flex-shrink: 0;
           }
+          @media (max-width: 768px) {
+            th, td { padding: 10px 8px; font-size: 0.75rem; }
+            td { height: 65px; }
+            .score { font-size: 0.9rem; }
+            .av { width: 36px; height: 36px; font-size: 0.9rem; }
+          }
         `}</style>
-        <div style={{ overflowX: 'auto' }}>
-          <table>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ minWidth: isMobile ? '100%' : 'auto' }}>
             <thead>
               <tr>
-                <th>No</th>
-                <th>Nama</th>
-                <th>Posisi</th>
-                <th>Penempatan</th>
+                <th style={{ width: '40px' }}>No</th>
+                <th style={{ minWidth: '140px' }}>Nama</th>
+                <th style={{ minWidth: '100px' }}>Posisi</th>
+                <th style={{ minWidth: '120px' }}>Penempatan</th>
                 {allRoles.map(r => (
-                  <th key={r} style={{ textAlign: 'center' }}>{r}</th>
+                  <th key={r} style={{ textAlign: 'center', minWidth: '90px' }}>{r}</th>
                 ))}
-                <th style={{ textAlign: 'center' }}>Rata-rata</th>
-                <th>Status</th>
+                <th style={{ textAlign: 'center', minWidth: '80px' }}>Rata-rata</th>
+                <th style={{ minWidth: '110px' }}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -232,26 +427,26 @@ export default function Rekap() {
                 <tr><td colSpan={5 + allRoles.length} style={{ textAlign: 'center', color: '#94a3b8', padding: 40 }}>Belum ada data</td></tr>
               ) : data.map((c, i) => (
                 <tr key={c.id}>
-                  <td style={{ fontWeight: 600, color: '#475569' }}>{i + 1}</td>
+                  <td style={{ fontWeight: 600, color: '#475569', textAlign: 'center' }}>{i + 1}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div className="av">{c.nama?.charAt(0)}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.nama}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 2 }}>{c.divisi}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nama}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: 2 }}>{c.divisi}</div>
                       </div>
                     </div>
                   </td>
-                  <td style={{ color: '#475569' }}>{c.posisi}</td>
-                  <td style={{ color: '#475569' }}>{c.penempatan}</td>
+                  <td style={{ color: '#475569', fontSize: '0.85rem' }}>{c.posisi}</td>
+                  <td style={{ color: '#475569', fontSize: '0.85rem' }}>{c.penempatan}</td>
                   {allRoles.map(r => {
                     const s = c.scores_by_role?.[r];
                     return (
                       <td key={r} style={{ textAlign: 'center' }}>
                         {s ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, justifyContent: 'center', height: '100%' }}>
                             <span className={`score ${scoreClass(s.score)}`}>{s.score.toFixed(2)}</span>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{getFirstName(s.name)}</div>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>{getFirstName(s.name)}</div>
                           </div>
                         ) : (
                           <span style={{ color: '#cbd5e1', fontWeight: 500 }}>-</span>
@@ -260,7 +455,7 @@ export default function Rekap() {
                     );
                   })}
                   <td style={{ textAlign: 'center' }}>
-                    <span className={`score ${scoreClass(c.avg_score)}`} style={{ fontSize: '1.1rem' }}>
+                    <span className={`score ${scoreClass(c.avg_score)}`} style={{ fontSize: '1rem' }}>
                       {c.avg_score.toFixed(2)}
                     </span>
                   </td>

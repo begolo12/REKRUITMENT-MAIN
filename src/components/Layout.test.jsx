@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Layout from './Layout';
 
@@ -36,11 +36,11 @@ const renderLayout = () => {
 
 describe('Layout - Responsive Sidebar', () => {
   const originalInnerWidth = window.innerWidth;
-  
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
-  
+
   afterEach(() => {
     setViewportSize(originalInnerWidth);
   });
@@ -52,7 +52,7 @@ describe('Layout - Responsive Sidebar', () => {
 
     it('should hide sidebar by default on mobile', () => {
       renderLayout();
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
+      const sidebar = document.querySelector('#sidebar');
       expect(sidebar).not.toHaveClass('mob-open');
     });
 
@@ -66,8 +66,8 @@ describe('Layout - Responsive Sidebar', () => {
       renderLayout();
       const toggleButton = screen.getByLabelText(/buka menu navigasi/i);
       fireEvent.click(toggleButton);
-      
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
+
+      const sidebar = document.querySelector('#sidebar');
       expect(sidebar).toHaveClass('mob-open');
     });
 
@@ -75,7 +75,7 @@ describe('Layout - Responsive Sidebar', () => {
       renderLayout();
       const toggleButton = screen.getByLabelText(/buka menu navigasi/i);
       fireEvent.click(toggleButton);
-      
+
       const overlay = document.querySelector('.sb-overlay');
       expect(overlay).toHaveClass('show');
     });
@@ -84,11 +84,11 @@ describe('Layout - Responsive Sidebar', () => {
       renderLayout();
       const toggleButton = screen.getByLabelText(/buka menu navigasi/i);
       fireEvent.click(toggleButton);
-      
+
       const overlay = document.querySelector('.sb-overlay');
       fireEvent.click(overlay);
-      
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
+
+      const sidebar = document.querySelector('#sidebar');
       expect(sidebar).not.toHaveClass('mob-open');
     });
   });
@@ -100,7 +100,7 @@ describe('Layout - Responsive Sidebar', () => {
 
     it('should show sidebar by default on desktop', () => {
       renderLayout();
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
+      const sidebar = document.querySelector('#sidebar');
       expect(sidebar).toBeInTheDocument();
     });
 
@@ -114,16 +114,16 @@ describe('Layout - Responsive Sidebar', () => {
 
     it('should expand sidebar on hover for desktop', () => {
       renderLayout();
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
-      
+      const sidebar = document.querySelector('#sidebar');
+
       fireEvent.mouseEnter(sidebar);
       expect(sidebar).toHaveClass('expanded');
     });
 
     it('should collapse sidebar when mouse leaves for desktop', () => {
       renderLayout();
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
-      
+      const sidebar = document.querySelector('#sidebar');
+
       fireEvent.mouseEnter(sidebar);
       fireEvent.mouseLeave(sidebar);
       expect(sidebar).not.toHaveClass('expanded');
@@ -131,12 +131,12 @@ describe('Layout - Responsive Sidebar', () => {
 
     it('should keep sidebar expanded when pinned on desktop', () => {
       renderLayout();
-      const sidebar = screen.getByRole('navigation', { name: /menu navigasi utama/i });
+      const sidebar = document.querySelector('#sidebar');
       const pinButton = screen.getByLabelText(/pin sidebar/i);
-      
+
       fireEvent.click(pinButton);
       expect(sidebar).toHaveClass('expanded');
-      
+
       fireEvent.mouseLeave(sidebar);
       expect(sidebar).toHaveClass('expanded');
     });
@@ -145,12 +145,12 @@ describe('Layout - Responsive Sidebar', () => {
 
 describe('Layout - Mobile-Friendly Component Sizes', () => {
   const originalInnerWidth = window.innerWidth;
-  
+
   beforeEach(() => {
     setViewportSize(375);
     vi.clearAllMocks();
   });
-  
+
   afterEach(() => {
     setViewportSize(originalInnerWidth);
   });
@@ -165,13 +165,50 @@ describe('Layout - Mobile-Friendly Component Sizes', () => {
     renderLayout();
     const toggleButton = screen.getByLabelText(/buka menu navigasi/i);
     fireEvent.click(toggleButton);
-    
+
     const menuItems = screen.getAllByRole('menuitem');
     expect(menuItems.length).toBeGreaterThan(0);
-    
+
     // Check that menu items exist and have proper structure
     menuItems.forEach(item => {
       expect(item).toBeInTheDocument();
     });
+  });
+
+  it('should have back button with minimum 44px touch target', () => {
+    // Navigate to a non-root page to show back button
+    window.history.pushState({}, '', '/candidates');
+    renderLayout();
+    
+    const backButton = screen.getByLabelText(/kembali ke halaman sebelumnya/i);
+    expect(backButton).toBeInTheDocument();
+    
+    // Check CSS properties for touch target size
+    const minHeight = window.getComputedStyle(backButton).minHeight;
+    const minWidth = window.getComputedStyle(backButton).minWidth;
+    
+    expect(backButton).toHaveStyle({
+      minHeight: expect.stringMatching(/(44px|48px)/),
+      minWidth: expect.stringMatching(/(44px|48px)/)
+    });
+  });
+
+  it('should have mobile toggle button with proper touch target', () => {
+    renderLayout();
+    const toggleButton = screen.getByLabelText(/buka menu navigasi/i);
+    
+    expect(toggleButton).toBeInTheDocument();
+    expect(toggleButton).toHaveAttribute('aria-expanded');
+    expect(toggleButton).toHaveAttribute('aria-controls', 'sidebar');
+  });
+
+  it('should have clear page title in topbar', () => {
+    renderLayout();
+    // Page title shows "Daftar Kandidat" because we're on /candidates route
+    const pageTitle = document.getElementById('page-title');
+    
+    expect(pageTitle).toBeInTheDocument();
+    expect(pageTitle).toHaveClass('topbar-title');
+    expect(pageTitle.tagName).toBe('H2');
   });
 });

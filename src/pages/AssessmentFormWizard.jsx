@@ -49,7 +49,7 @@ export default function AssessmentFormWizard() {
       if (Array.isArray(existingAssessments)) {
         existingAssessments.forEach(a => {
           existingAnswers[a.category_id] = {
-            rating: a.nilai,
+            rating: a.raw_rating !== undefined ? a.raw_rating : a.nilai,
             check: a.check_ada,
             comment: a.keterangan || ''
           };
@@ -114,6 +114,7 @@ export default function AssessmentFormWizard() {
         return {
           category_id: cat.id,
           nilai,
+          raw_rating: cat.tipe === 'rating' ? (ans?.rating || 0) : null,
           check_ada: ans?.check || false,
           keterangan: ans?.comment || ''
         };
@@ -307,50 +308,62 @@ export default function AssessmentFormWizard() {
             data-testid="rating-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)',
-              gap: isMobile ? 'var(--space-2)' : 'var(--space-3)',
-              marginBottom: 'var(--space-6)',
-              overflowX: isMobile ? 'auto' : 'visible'
+              gridTemplateColumns: isMobile ? 'repeat(1, 1fr)' : 'repeat(5, 1fr)',
+              gap: isMobile ? 'var(--space-3)' : 'var(--space-3)',
+              marginBottom: 'var(--space-6)'
             }}
           >
             {ratingOptions.map((option) => (
               <motion.button
                 key={option.value}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={isMobile ? {} : { scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => handleAnswer(currentQuestion.id, option.value)}
+                aria-pressed={currentAnswer?.rating === option.value}
+                aria-label={`Rating ${option.value} - ${option.label}`}
                 style={{
-                  padding: 'var(--space-4) var(--space-3)',
+                  padding: isMobile ? 'var(--space-4) var(--space-4)' : 'var(--space-4) var(--space-3)',
+                  minHeight: isMobile ? '64px' : 'auto',
                   background: currentAnswer?.rating === option.value 
-                    ? 'var(--primary-500)' 
+                    ? 'linear-gradient(135deg, var(--primary-500), var(--primary-600))' 
                     : 'var(--gray-50)',
                   color: currentAnswer?.rating === option.value ? '#fff' : 'var(--text)',
                   border: `2px solid ${currentAnswer?.rating === option.value ? 'var(--primary-500)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
                   textAlign: 'center',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: isMobile ? 'flex-start' : 'center',
+                  gap: isMobile ? 'var(--space-3)' : '0',
+                  boxShadow: currentAnswer?.rating === option.value 
+                    ? '0 4px 12px -2px rgba(79, 70, 229, 0.3)' 
+                    : 'none'
                 }}
               >
                 <div style={{
-                  fontSize: '1.5rem',
+                  fontSize: isMobile ? '1.75rem' : '1.5rem',
                   fontWeight: 800,
-                  marginBottom: 'var(--space-1)'
+                  marginBottom: isMobile ? '0' : 'var(--space-1)',
+                  minWidth: isMobile ? '40px' : 'auto'
                 }}>
                   {option.value}
                 </div>
-                <div style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  marginBottom: '2px'
-                }}>
-                  {option.label}
-                </div>
-                <div style={{
-                  fontSize: '0.625rem',
-                  opacity: 0.8
-                }}>
-                  {option.desc}
+                <div style={{ textAlign: isMobile ? 'left' : 'center' }}>
+                  <div style={{
+                    fontSize: isMobile ? '0.9rem' : '0.75rem',
+                    fontWeight: 600,
+                    marginBottom: '2px'
+                  }}>
+                    {option.label}
+                  </div>
+                  <div style={{
+                    fontSize: isMobile ? '0.8rem' : '0.625rem',
+                    opacity: 0.8
+                  }}>
+                    {option.desc}
+                  </div>
                 </div>
               </motion.button>
             ))}

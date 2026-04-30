@@ -3,7 +3,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Search, Filter, Trash2, FileDown, Loader2, X, Users, SearchX, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getCandidates, deleteCandidate, createCandidate } from '../services/db';
+import { getCandidates, deleteCandidate, createCandidate, getAllCandidatesWithScores } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import DataTable from '../components/ui/DataTable';
 import FilterPanel from '../components/ui/FilterPanel';
@@ -11,10 +11,11 @@ import ModernModal from '../components/ModernModal';
 import ConfirmModal from '../components/ConfirmModal';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
-import { SkeletonTable } from '../components/Skeleton';
+import { SkeletonTable, SkeletonList } from '../components/Skeleton';
 import { staggerContainer, staggerItem } from '../utils/animations';
 import { exportCandidatesToExcel } from '../utils/exportUtils';
 import { formatSalary } from '../utils/helpers';
+import MobileCandidatesView from '../components/mobile/MobileCandidatesView';
 
 // Custom hook untuk debounce
 function useDebounce(value, delay) {
@@ -87,15 +88,17 @@ const Pagination = memo(function Pagination({ currentPage, totalPages, onNext, o
       borderTop: '1px solid rgba(226, 232, 240, 0.6)'
     }}>
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        whileHover={isMobile ? {} : { scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={onPrev}
         disabled={currentPage === 1}
+        aria-label="Halaman sebelumnya"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          padding: isMobile ? '8px 12px' : '10px 16px',
+          padding: isMobile ? '12px 16px' : '10px 16px',
+          minHeight: '44px',
           background: currentPage === 1 ? '#f1f5f9' : '#ffffff',
           border: '1px solid #e2e8f0',
           borderRadius: '10px',
@@ -118,13 +121,17 @@ const Pagination = memo(function Pagination({ currentPage, totalPages, onNext, o
         fontSize: '0.875rem',
         color: '#64748b'
       }}>
-        <span style={{
-          padding: '8px 16px',
-          background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-          color: '#fff',
-          borderRadius: '10px',
-          fontWeight: 700
-        }}>
+        <span 
+          style={{
+            padding: '8px 16px',
+            background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+            color: '#fff',
+            borderRadius: '10px',
+            fontWeight: 700
+          }}
+          aria-label={`Halaman ${currentPage} dari ${totalPages}`}
+          aria-current="page"
+        >
           {currentPage}
         </span>
         <span>dari</span>
@@ -132,15 +139,17 @@ const Pagination = memo(function Pagination({ currentPage, totalPages, onNext, o
       </div>
 
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        whileHover={isMobile ? {} : { scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={onNext}
         disabled={currentPage === totalPages}
+        aria-label="Halaman selanjutnya"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          padding: isMobile ? '8px 12px' : '10px 16px',
+          padding: isMobile ? '12px 16px' : '10px 16px',
+          minHeight: '44px',
           background: currentPage === totalPages ? '#f1f5f9' : '#ffffff',
           border: '1px solid #e2e8f0',
           borderRadius: '10px',
@@ -227,8 +236,8 @@ export default function Candidates() {
     try {
       setLoading(true);
       setError(null);
-      const result = await getCandidates();
-      const data = result.success ? result.data : [];
+      // Gunakan getAllCandidatesWithScores untuk mendapatkan avg_score
+      const data = await getAllCandidatesWithScores();
       // Cek apakah komponen masih mounted sebelum update state
       if (isMountedRef.current) {
         setCandidates(data);
@@ -702,7 +711,7 @@ export default function Candidates() {
         </motion.div>
       )}
 
-      {/* Premium Data Table */}
+      {/* Premium Data Table / Mobile Cards */}
       <motion.div variants={staggerItem}>
         <div style={{
           background: '#ffffff',
@@ -712,7 +721,7 @@ export default function Candidates() {
           overflow: 'hidden'
         }}>
           {loading ? (
-            <SkeletonTable rows={5} cols={5} />
+            isMobile ? <SkeletonList /> : <SkeletonTable rows={5} cols={5} />
           ) : error ? (
             <ErrorState 
               error={error}
@@ -732,7 +741,21 @@ export default function Candidates() {
                 onClick: () => setShowAddModal(true)
               }}
             />
+          ) : isMobile ? (
+            /* Mobile View - Using MobileCandidatesView Component */
+            <MobileCandidatesView
+              candidates={filteredCandidates}
+              loading={loading}
+              onRefresh={loadCandidates}
+              onDelete={(candidate) => setCandidateToDelete(candidate)}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              filters={filters}
+              onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+              onAddCandidate={() => setShowAddModal(true)}
+            />
           ) : (
+            /* Desktop Table Layout */
             <>
               <DataTable
                 columns={columns}

@@ -405,6 +405,16 @@ select:focus {
     display: none;
   }
 
+  /* Hide sidebar on mobile */
+  .sidebar {
+    display: none !important;
+  }
+
+  .main {
+    margin-left: 0 !important;
+    padding: 12px;
+  }
+
   .stats,
   .dash > div:nth-child(2),
   .dash > div:nth-child(3) {

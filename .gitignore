@@ -32,6 +32,10 @@ rekrutment-*.json
 *.sln
 *.sw?
 
-# Documentation files
+# Documentation and Data files
 *.md
 !README.md
+excel/
+*.xlsx
+*.xls
+*.csv

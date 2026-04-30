@@ -68,6 +68,7 @@ export default function AssessmentForm() {
           const ex = existing.find(e => e.category_id === c.id);
           ans[c.id] = {
             nilai: ex?.nilai ?? null,
+            raw_rating: ex?.raw_rating ?? null,
             check_ada: ex?.check_ada ?? null,
             keterangan: ex?.keterangan ?? '',
           };
@@ -114,6 +115,7 @@ export default function AssessmentForm() {
   const handleRating = (cat, ratingValue) => {
     const nilai = Math.round(ratingValue * cat.bobot * 100 * 100) / 100;
     setAnswer(cat.id, 'nilai', nilai);
+    setAnswer(cat.id, 'raw_rating', ratingValue);
   };
 
   const handleCheck = (cat, isAda) => {
@@ -261,6 +263,7 @@ export default function AssessmentForm() {
     try {
       const items = categories.map(c => ({
         category_id: c.id,
+        raw_rating: answers[c.id]?.raw_rating || null,
         nilai: answers[c.id]?.nilai || 0,
         check_ada: answers[c.id]?.check_ada || false,
         keterangan: answers[c.id]?.keterangan || '',

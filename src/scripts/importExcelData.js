@@ -16,6 +16,8 @@ import {
   collection, doc, getDocs, addDoc, writeBatch, serverTimestamp
 } from 'firebase/firestore';
 
+import { EXCEL_ASSESSMENTS } from './excel_data.js';
+
 // ==================== DATA PENILAI (ASSESSOR) ====================
 const ASSESSORS = [
   { username: 'wahyu', password_plain: 'wahyu123', full_name: 'Wahyu M. Pungki', role: 'user' },
@@ -26,10 +28,10 @@ const ASSESSORS = [
 
 // ==================== DATA KANDIDAT ====================
 const CANDIDATES = [
-  { nama: 'Wahyu M. Pungki', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Lulus' },
-  { nama: 'Urip', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Lulus' },
-  { nama: 'Anggy Permana Putra', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Lulus' },
-  { nama: 'Muchlis Arif', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Lulus' },
+  { nama: 'Deny Ferdiansyah', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Menunggu' },
+  { nama: 'Ilham Ambia Putra', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Menunggu' },
+  { nama: 'Mohamad Dicky', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Menunggu' },
+  { nama: 'M. Doni Waseso', posisi: 'Staff Operasi', penempatan: 'IKN - Kalimantan Timur', divisi: 'Operasi', budget_salary: 'Range 4 JT - 4,8 JT (All In - IKN)', status: 'Menunggu' },
 ];
 
 // ==================== DATA PENILAIAN (dari Excel, semua identik) ====================
@@ -151,30 +153,34 @@ export async function importExcelData() {
     }
 
     // 6. Create assessments - each assessor rates each candidate
-    // Mapping: penilai -> kandidat yang dinilai
-    // Wahyu menilai Wahyu, Urip menilai Urip, dst (sesuai file Excel masing-masing)
-    const assessmentPairs = [
-      { assessor: 'anggy', candidate: 'Wahyu M. Pungki' },
-      { assessor: 'anggy', candidate: 'Urip' },
-      { assessor: 'anggy', candidate: 'Anggy Permana Putra' },
-      { assessor: 'anggy', candidate: 'Muchlis Arif' },
-    ];
-
     // Check existing assessments
     const assSnap = await getDocs(collection(db, 'assessments'));
     const existingAssessments = assSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+    // Delete existing assessments to ensure clean sync with Excel
+    console.log(`🗑️ Deleting ${existingAssessments.length} existing assessments for clean sync...`);
+    const deleteBatch = writeBatch(db);
+    existingAssessments.forEach(ass => {
+      deleteBatch.delete(doc(db, 'assessments', ass.id));
+    });
+    await deleteBatch.commit();
+    console.log('✅ Deleted existing assessments.');
+
     let createdCount = 0;
     let skippedCount = 0;
 
-    for (const pair of assessmentPairs) {
-      const assessorId = assessorIds[pair.assessor];
-      const candidateId = candidateIds[pair.candidate];
+    // Process from EXCEL_ASSESSMENTS
+    for (const assessment of EXCEL_ASSESSMENTS) {
+      const assessorId = assessorIds[assessment.penilai];
+      const candidateId = candidateIds[assessment.kandidat];
 
       if (!assessorId || !candidateId) {
-        console.warn(`⚠️ Skipping pair: assessor=${pair.assessor}, candidate=${pair.candidate} (ID not found)`);
+        console.warn(`⚠️ Skipping assessment for: assessor=${assessment.penilai}, candidate=${assessment.kandidat} (ID not found)`);
         continue;
       }
+      
+      // Calculate total score
+      const totalScore = assessment.scores.reduce((sum, s) => sum + (s.nilai || 0), 0);
 
       // Check if assessments already exist for this pair
       const existingForPair = existingAssessments.filter(
@@ -182,14 +188,14 @@ export async function importExcelData() {
       );
 
       if (existingForPair.length > 0) {
-        console.log(`⏭️ Assessments already exist for ${pair.assessor} -> ${pair.candidate} (${existingForPair.length} items)`);
+        console.log(`⭐️ Assessments already exist for ${assessment.penilai} -> ${assessment.kandidat} (${existingForPair.length} items)`);
         skippedCount += existingForPair.length;
         continue;
       }
 
       // Create assessments in batch
       const batch = writeBatch(db);
-      for (const item of ASSESSMENT_DATA) {
+      for (const item of assessment.scores) {
         const categoryId = kodeMap[item.kode];
         if (!categoryId) {
           console.warn(`⚠️ Category kode "${item.kode}" not found in Firebase!`);
@@ -201,33 +207,23 @@ export async function importExcelData() {
           candidate_id: candidateId,
           assessor_id: assessorId,
           category_id: categoryId,
-          nilai: item.nilai,
-          check_ada: item.check_ada,
-          keterangan: '',
+          nilai: Math.round(item.nilai * 100) / 100,
+          check_ada: item.check_ada || false,
+          is_final_score: true,
+          keterangan: item.keterangan || '',
           created_at: serverTimestamp()
         });
         createdCount++;
       }
       await batch.commit();
-      console.log(`✅ Created assessments for ${pair.assessor} -> ${pair.candidate}`);
+      console.log(`✅ Imported ${assessment.scores.length} scores for ${assessment.penilai} -> ${assessment.kandidat}`);
     }
 
-    console.log(`\n🎉 Import complete!`);
-    console.log(`   Created: ${createdCount} assessments`);
-    console.log(`   Skipped: ${skippedCount} (already exist)`);
-    console.log(`   Assessors: ${Object.keys(assessorIds).length}`);
-    console.log(`   Candidates: ${Object.keys(candidateIds).length}`);
-
-    return {
-      success: true,
-      created: createdCount,
-      skipped: skippedCount,
-      assessors: Object.keys(assessorIds).length,
-      candidates: Object.keys(candidateIds).length
-    };
-
+    console.log(`✨ Import finished! Created ${createdCount} assessment items.`);
+    return { success: true, createdCount };
   } catch (error) {
     console.error('❌ Import failed:', error);
     return { success: false, error: error.message };
   }
 }
+

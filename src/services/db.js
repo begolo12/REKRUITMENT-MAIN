@@ -3,6 +3,7 @@ import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
   writeBatch, serverTimestamp
 } from 'firebase/firestore';
+import { importExcelData as realImportExcelData } from '../scripts/importExcelData.js';
 
 // ==================== ERROR HANDLING UTILITIES ====================
 
@@ -811,130 +812,9 @@ const EXCEL_ASSESSMENTS = [
 
 /**
  * Import data dari Excel ke Firebase
- * Hapus data lama, buat 4 penilai, 4 kandidat, dan 13 set penilaian
  */
 export async function importExcelData() {
-  try {
-    console.log('🚀 Starting Excel data import...');
-
-    // 0. Hapus kandidat & assessment lama yang salah
-    const oldCandSnap = await getDocs(collection(db, 'candidates'));
-    const oldCands = oldCandSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const oldAssSnap = await getDocs(collection(db, 'assessments'));
-    const oldAss = oldAssSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Delete old data in batches
-    if (oldAss.length > 0 || oldCands.length > 0) {
-      const delBatch = writeBatch(db);
-      oldAss.forEach(a => delBatch.delete(doc(db, 'assessments', a.id)));
-      oldCands.forEach(c => delBatch.delete(doc(db, 'candidates', c.id)));
-      await delBatch.commit();
-      console.log(`🗑️ Deleted ${oldCands.length} old candidates, ${oldAss.length} old assessments`);
-    }
-    invalidate('candidates');
-    invalidate('assessments');
-
-    // Delete old assessor users (not admin)
-    const oldUserSnap = await getDocs(collection(db, 'users'));
-    const oldUsers = oldUserSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const userDelBatch = writeBatch(db);
-    let deletedUsers = 0;
-    oldUsers.forEach(u => {
-      if (u.username !== 'admin') {
-        userDelBatch.delete(doc(db, 'users', u.id));
-        deletedUsers++;
-      }
-    });
-    if (deletedUsers > 0) {
-      await userDelBatch.commit();
-      console.log(`🗑️ Deleted ${deletedUsers} old users`);
-    }
-    invalidate('users');
-
-    // 1. Get categories
-    const catSnap = await getDocs(collection(db, 'categories'));
-    const categories = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (categories.length === 0) {
-      return { success: false, error: 'Belum ada soal assessment. Seed soal terlebih dahulu.' };
-    }
-    const kodeMap = {};
-    categories.forEach(c => { kodeMap[c.kode] = c.id; });
-
-    // 2. Create assessor users
-    const assessorIds = {};
-    for (const assessor of EXCEL_ASSESSORS) {
-      const hashedPw = await hashPassword(assessor.password_plain);
-      const ref = await addDoc(collection(db, 'users'), {
-        username: assessor.username,
-        password: hashedPw,
-        full_name: assessor.full_name,
-        role: assessor.role,
-        created_at: serverTimestamp()
-      });
-      assessorIds[assessor.username] = ref.id;
-      console.log(`✅ Created assessor: ${assessor.full_name} (${assessor.role})`);
-    }
-    invalidate('users');
-
-    // 3. Create candidates
-    const candidateIds = {};
-    for (const cand of EXCEL_CANDIDATES) {
-      const ref = await addDoc(collection(db, 'candidates'), {
-        ...cand,
-        status: 'Dalam Proses',
-        created_at: serverTimestamp()
-      });
-      candidateIds[cand.nama] = ref.id;
-      console.log(`✅ Created candidate: ${cand.nama}`);
-    }
-    invalidate('candidates');
-
-    // 4. Create assessments from EXCEL_ASSESSMENTS
-    let created = 0;
-    for (const assessment of EXCEL_ASSESSMENTS) {
-      const assessorId = assessorIds[assessment.penilai];
-      const candidateId = candidateIds[assessment.kandidat];
-      if (!assessorId || !candidateId) {
-        console.warn(`⚠️ Skip: ${assessment.penilai} -> ${assessment.kandidat}`);
-        continue;
-      }
-
-      const batch = writeBatch(db);
-      for (const item of assessment.scores) {
-        const categoryId = kodeMap[item.kode];
-        if (!categoryId) continue;
-        const ref = doc(collection(db, 'assessments'));
-        batch.set(ref, {
-          candidate_id: candidateId,
-          assessor_id: assessorId,
-          category_id: categoryId,
-          nilai: item.nilai,
-          check_ada: item.check_ada,
-          keterangan: item.keterangan || '',
-          created_at: serverTimestamp()
-        });
-        created++;
-      }
-      await batch.commit();
-      console.log(`✅ ${assessment.penilai} -> ${assessment.kandidat}: ${assessment.scores.length} scores`);
-    }
-    invalidate('assessments');
-
-    // 5. Auto-update statuses
-    for (const cand of EXCEL_CANDIDATES) {
-      const candId = candidateIds[cand.nama];
-      if (candId) {
-        try { await autoUpdateStatus(candId); } catch (e) { /* ignore */ }
-      }
-    }
-
-    const msg = `Import berhasil: ${EXCEL_CANDIDATES.length} kandidat, ${EXCEL_ASSESSORS.length} penilai, ${created} penilaian`;
-    console.log(`🎉 ${msg}`);
-    return { success: true, message: msg, created };
-  } catch (error) {
-    console.error('❌ Import gagal:', error);
-    return { success: false, error: getUserFriendlyError(error) };
-  }
+  return await realImportExcelData();
 }
 
 export async function createCategory(data) {
@@ -1041,12 +921,32 @@ function buildUserMap(users) {
 export const RATING_MULTIPLIER = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1.0 };
 
 // Hitung skor per item sesuai rumus Excel:
-// nilai di database sudah berupa skor akhir (bobot × multiplier × 100)
-// yang dihitung oleh AssessmentForm saat user memilih rating
-// Fungsi ini langsung mengembalikan nilai yang tersimpan
+// Check type: bobot × 100 (jika Ada)
+// Rating type: bobot × multiplier × 100
 export function calcItemScore(assessment, category) {
   if (!category) return 0;
-  return assessment.nilai || 0;
+
+  // Data dari Excel import sudah berisi nilai akhir (sudah dikalikan bobot)
+  // Langsung kembalikan tanpa kalkulasi ulang
+  if (assessment.is_final_score) {
+    return assessment.nilai || 0;
+  }
+
+  if (category.tipe === 'check') {
+    // Check type: bobot × 100 jika Ada, 0 jika Tidak
+    return assessment.check_ada ? Math.round(category.bobot * 100 * 100) / 100 : 0;
+  }
+
+  // Rating type: bobot × multiplier × 100
+  // Cek jika ada raw_rating (prioritas utama untuk input UI baru)
+  const rating = assessment.raw_rating !== undefined ? assessment.raw_rating : assessment.nilai;
+  
+  // Jika rating > 5, itu berarti ini adalah nilai akhir yang sudah dihitung (data Legacy)
+  // Kembalikan nilai tersebut langsung tanpa dikali lagi
+  if (rating > 5) return rating;
+
+  const multiplier = RATING_MULTIPLIER[rating] || 0;
+  return Math.round(category.bobot * multiplier * 100 * 100) / 100;
 }
 
 function calcCandidateScore(candidateId, allAssessments, userMap, allCategories) {
@@ -1229,8 +1129,33 @@ export async function getRekapData() {
         return s + calcItemScore(a, cat);
       }, 0) * 100) / 100;
       const user = userMap[aid];
-      let roleLabel = (user?.role || 'user').toUpperCase();
-      if (roleLabel === 'USER') { userCount++; roleLabel = `USER-${userCount}`; }
+      
+      // Mapping role ke label kolom yang sesuai dengan Excel
+      // Role di database: "Direktur HR", "Direktur GAS", "Direktur DJP", "Manager Operasi"
+      // Kolom Excel: "DIREKTUR", "DIREKTUR DJP", "DIREKTUR GAS", "MANAGER OPERASI"
+      const userRole = (user?.role || 'user').toUpperCase();
+      let roleLabel;
+      
+      if (userRole === 'DIREKTUR HR') {
+        roleLabel = 'DIREKTUR';
+      } else if (userRole === 'DIREKTUR DJP') {
+        roleLabel = 'DIREKTUR DJP';
+      } else if (userRole === 'DIREKTUR GAS') {
+        roleLabel = 'DIREKTUR GAS';
+      } else if (userRole === 'MANAGER OPERASI') {
+        roleLabel = 'MANAGER OPERASI';
+      } else if (userRole === 'HR') {
+        roleLabel = 'HR';
+      } else if (userRole === 'ADMIN') {
+        roleLabel = 'ADMIN';
+      } else if (userRole === 'USER') { 
+        userCount++; 
+        roleLabel = `USER-${userCount}`; 
+      } else {
+        // Fallback: gunakan role asli
+        roleLabel = userRole;
+      }
+      
       // Use first name only for display
       const firstName = getFirstName(user?.full_name || 'Unknown');
       scores_by_role[roleLabel] = { name: firstName, score: total };

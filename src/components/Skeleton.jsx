@@ -9,7 +9,7 @@ export function SkeletonLine({ width = '100%', height = 14, style }) {
         borderRadius: 8,
         background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%)',
         backgroundSize: '200% 100%',
-        animation: 'shimmer 1.8s ease-in-out infinite',
+        animation: 'shimmer 2s ease-in-out infinite',
         ...style
       }} 
     />
@@ -155,6 +155,26 @@ export function SkeletonStats({ count = 4 }) {
   );
 }
 
+export function SkeletonPage() {
+  return (
+    <div 
+      data-testid="skeleton-page"
+      className="skeleton-page"
+      style={{
+        padding: '24px',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        minHeight: '100vh',
+        background: '#f8fafc'
+      }}
+    >
+      <SkeletonHeader />
+      <SkeletonStats count={4} />
+      <SkeletonTable rows={5} cols={5} />
+    </div>
+  );
+}
+
 // Add shimmer animation via style tag
 if (typeof document !== 'undefined' && !document.getElementById('skeleton-style')) {
   const style = document.createElement('style');
@@ -167,30 +187,74 @@ if (typeof document !== 'undefined' && !document.getElementById('skeleton-style'
     
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.6; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton-line {
+        animation: none !important;
+        background-position: 0 0 !important;
+      }
+      .skeleton-pulse,
+      .spin {
+        animation: none !important;
+      }
     }
     
     .skeleton-line {
       will-change: background-position;
+      transform: translateZ(0);
+      backface-visibility: hidden;
     }
     
     .skeleton-card {
       will-change: transform;
+      transform: translateZ(0);
     }
     
     @media (max-width: 768px) {
       .skeleton-card {
         border-radius: 16px;
-        padding: 20px;
+        padding: 16px;
       }
       
       .skeleton-table {
         border-radius: 16px;
+        padding: 12px;
       }
       
       .skeleton-header {
         border-radius: 16px;
-        padding: 20px 24px;
+        padding: 20px 16px;
+        margin-bottom: 16px;
+      }
+      
+      .skeleton-stats {
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      
+      .skeleton-dashboard {
+        padding: 0;
+      }
+      
+      .skeleton-page {
+        padding: 16px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .skeleton-card {
+        padding: 12px;
+        border-radius: 12px;
+      }
+      
+      .skeleton-table {
+        padding: 8px;
+      }
+      
+      .skeleton-header {
+        padding: 16px 12px;
       }
     }
   `;

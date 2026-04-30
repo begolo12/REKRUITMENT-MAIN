@@ -23,9 +23,12 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('../services/db', () => ({
   getCandidate: vi.fn(() => Promise.resolve({ id: '1', nama: 'Test', posisi: 'Developer' })),
-  getCategories: vi.fn(() => Promise.resolve([
-    { id: '1', nama_kategori: 'Technical', tipe: 'rating' }
-  ])),
+  getCategories: vi.fn(() => Promise.resolve({
+    success: true,
+    data: [
+      { id: '1', nama_kategori: 'Technical', tipe: 'rating', kategori_utama: 'A', pertanyaan: 'Test question', bobot: 0.2 }
+    ]
+  })),
   getAssessments: vi.fn(() => Promise.resolve([])),
   saveAssessments: vi.fn(() => Promise.resolve())
 }));
@@ -41,7 +44,7 @@ describe('Mobile Responsive Tests', () => {
     window.innerWidth = originalInnerWidth;
   });
 
-  it('rating grid adapts to mobile (3 columns)', async () => {
+  it('rating grid adapts to mobile (1 column)', async () => {
     const { useIsMobile } = await import('../hooks/useIsMobile');
     useIsMobile.mockReturnValue(true);
 
@@ -52,12 +55,13 @@ describe('Mobile Responsive Tests', () => {
     );
 
     // Wait for data to load
-    await screen.findByText('Form Penilaian', {}, { timeout: 3000 });
+    await screen.findByText(/Test question/i, {}, { timeout: 3000 });
 
     const grid = screen.queryByTestId('rating-grid');
     if (grid) {
       const styles = window.getComputedStyle(grid);
-      expect(styles.gridTemplateColumns).toContain('repeat(3, 1fr)');
+      // Mobile now uses 1 column for better touch experience
+      expect(styles.gridTemplateColumns).toContain('repeat(1, 1fr)');
     }
   });
 
@@ -71,7 +75,8 @@ describe('Mobile Responsive Tests', () => {
       </BrowserRouter>
     );
 
-    await screen.findByText('Form Penilaian', {}, { timeout: 3000 });
+    // Wait for data to load
+    await screen.findByText(/Test question/i, {}, { timeout: 3000 });
 
     const grid = screen.queryByTestId('rating-grid');
     if (grid) {
@@ -87,7 +92,7 @@ describe('FilterPanel Mobile Tests', () => {
     useIsMobile.mockReturnValue(true);
 
     const FilterPanel = (await import('../components/ui/FilterPanel')).default;
-    
+
     const { container } = render(
       <FilterPanel
         isOpen={true}
@@ -111,7 +116,7 @@ describe('FilterPanel Mobile Tests', () => {
     useIsMobile.mockReturnValue(false);
 
     const FilterPanel = (await import('../components/ui/FilterPanel')).default;
-    
+
     const { container } = render(
       <FilterPanel
         isOpen={true}

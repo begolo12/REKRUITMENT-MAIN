@@ -170,27 +170,32 @@ export default function ErrorState({
         {error || 'Gagal memuat data. Silakan coba lagi.'}
       </motion.p>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Mobile-optimized layout */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
         style={{
           display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
           gap: '12px',
-          flexWrap: 'wrap',
+          width: isMobile ? '100%' : 'auto',
+          maxWidth: isMobile ? '320px' : 'none',
           justifyContent: 'center'
         }}
       >
-        {/* Retry Button */}
+        {/* Retry Button - Enhanced for mobile */}
         {onRetry && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onRetry}
             style={{
-              padding: isMobile ? '12px 24px' : '14px 32px',
-              fontSize: isMobile ? '14px' : '16px',
+              padding: isMobile ? '14px 28px' : '14px 32px',
+              minHeight: isMobile ? 48 : 44,
+              minWidth: isMobile ? 160 : 'auto',
+              lineHeight: 1.2,
+              fontSize: isMobile ? '15px' : '16px',
               fontWeight: 600,
               color: '#ffffff',
               background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
@@ -201,23 +206,29 @@ export default function ErrorState({
               transition: 'all 0.3s ease',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              justifyContent: 'center',
+              gap: '8px',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
-            <RefreshCw size={18} />
+            <RefreshCw size={isMobile ? 20 : 18} />
             Coba Lagi
           </motion.button>
         )}
 
-        {/* Support Link */}
+        {/* Support Link - Enhanced for mobile */}
         {showSupport && (
           <motion.a
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             href={`mailto:${supportEmail}`}
             style={{
-              padding: isMobile ? '12px 24px' : '14px 32px',
-              fontSize: isMobile ? '14px' : '16px',
+              padding: isMobile ? '14px 28px' : '14px 32px',
+              minHeight: isMobile ? 48 : 44,
+              minWidth: isMobile ? 160 : 'auto',
+              lineHeight: 1.2,
+              fontSize: isMobile ? '15px' : '16px',
               fontWeight: 600,
               color: '#64748b',
               background: '#f8fafc',
@@ -228,10 +239,13 @@ export default function ErrorState({
               transition: 'all 0.3s ease',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              justifyContent: 'center',
+              gap: '8px',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
             }}
           >
-            <Mail size={18} />
+            <Mail size={isMobile ? 20 : 18} />
             Hubungi Support
           </motion.a>
         )}

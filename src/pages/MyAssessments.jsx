@@ -4,9 +4,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getMyAssessments, getAllCandidatesWithScores } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { ClipboardList, CheckCircle, AlertCircle, Eye, Star, TrendingUp } from 'lucide-react';
+import { ClipboardList, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { SkeletonList } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
+import MobileMyAssessments from '../components/mobile/MobileMyAssessments';
 
 const staggerContainer = {
   initial: { opacity: 0 },
@@ -204,6 +205,17 @@ export default function MyAssessments() {
         </button>
       </motion.div>
 
+      {/* Mobile View */}
+      {isMobile ? (
+        <MobileMyAssessments
+          assessed={assessed}
+          notAssessed={notAssessed}
+          tab={tab}
+          onTabChange={setTab}
+          loading={loading}
+        />
+      ) : (
+      <>
       {tab === 'assessed' && (
         <motion.div variants={staggerItem}>
           <div style={{
@@ -720,6 +732,8 @@ export default function MyAssessments() {
             </div>
           </div>
         </motion.div>
+      )}
+      </>
       )}
     </motion.div>
   );

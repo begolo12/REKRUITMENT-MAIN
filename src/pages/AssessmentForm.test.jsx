@@ -51,7 +51,7 @@ describe('AssessmentForm Validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getCandidate.mockResolvedValue(mockCandidate);
-    getCategories.mockResolvedValue(mockCategories);
+    getCategories.mockResolvedValue({ success: true, data: mockCategories });
     getAssessments.mockResolvedValue([]);
   });
 
@@ -63,7 +63,7 @@ describe('AssessmentForm Validation', () => {
 
     it('renders candidate information after loading', async () => {
       renderWithRouter(<AssessmentForm />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
       });
@@ -73,7 +73,7 @@ describe('AssessmentForm Validation', () => {
   describe('Rating validation', () => {
     it('shows validation warning when not all questions are answered on save', async () => {
       renderWithRouter(<AssessmentForm />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
       });
@@ -90,13 +90,19 @@ describe('AssessmentForm Validation', () => {
 
     it('shows warning for extreme ratings without comments', async () => {
       renderWithRouter(<AssessmentForm />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
       });
 
-      // Click on "Sangat Kurang" (SK - extreme low rating)
-      const skButton = screen.getByText('SK');
+      // Wait for rating buttons to be available
+      await waitFor(() => {
+        const ratingButtons = screen.queryAllByRole('radio');
+        expect(ratingButtons.length).toBeGreaterThan(0);
+      });
+
+      // Click on "SK" (Sangat Kurang - extreme low rating)
+      const skButton = screen.getByLabelText(/Sangat Kurang/i);
       fireEvent.click(skButton);
 
       // Should show warning about comment required for extreme rating
@@ -107,13 +113,19 @@ describe('AssessmentForm Validation', () => {
 
     it('clears extreme rating warning when comment is added', async () => {
       renderWithRouter(<AssessmentForm />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
       });
 
+      // Wait for rating buttons to be available
+      await waitFor(() => {
+        const ratingButtons = screen.queryAllByRole('radio');
+        expect(ratingButtons.length).toBeGreaterThan(0);
+      });
+
       // Click on extreme rating
-      const skButton = screen.getByText('SK');
+      const skButton = screen.getByLabelText(/Sangat Kurang/i);
       fireEvent.click(skButton);
 
       await waitFor(() => {
@@ -133,16 +145,22 @@ describe('AssessmentForm Validation', () => {
   describe('Progress tracking', () => {
     it('shows correct progress percentage', async () => {
       renderWithRouter(<AssessmentForm />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
+      });
+
+      // Wait for rating buttons to be available
+      await waitFor(() => {
+        const ratingButtons = screen.queryAllByRole('radio');
+        expect(ratingButtons.length).toBeGreaterThan(0);
       });
 
       // Initial progress should be 0%
       expect(screen.getByText(/0\/3 pertanyaan dijawab \(0%\)/i)).toBeInTheDocument();
 
-      // Answer one question
-      const ratingButton = screen.getByText('R'); // Rata-rata
+      // Answer one question - using aria-label for rating
+      const ratingButton = screen.getByLabelText(/Rata-rata/i);
       fireEvent.click(ratingButton);
 
       await waitFor(() => {
@@ -154,23 +172,28 @@ describe('AssessmentForm Validation', () => {
   describe('Check type questions', () => {
     it('validates check type questions (Ada/Tidak)', async () => {
       renderWithRouter(<AssessmentForm />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
       });
 
       // Navigate to section B (which has check type question)
-      // Use getAllByText and filter for the tab button
-      const allBElements = screen.getAllByText('B');
-      const sectionBTab = allBElements.find(el => el.tagName === 'BUTTON');
+      // Wait for tabs to be available
+      await waitFor(() => {
+        const tabs = screen.queryByRole('tablist');
+        expect(tabs).toBeInTheDocument();
+      });
+
+      // Find and click section B tab using aria-label
+      const sectionBTab = screen.getByRole('tab', { name: /ADMINISTRASI/i });
       fireEvent.click(sectionBTab);
 
       await waitFor(() => {
         expect(screen.getByText(/Apakah dokumen lengkap/i)).toBeInTheDocument();
       });
 
-      // Click "Ada"
-      const adaButton = screen.getByText('Ada');
+      // Click "Ada" - using the check button with role radio
+      const adaButton = screen.getByRole('radio', { name: /Ada/i });
       fireEvent.click(adaButton);
 
       // Should update the answer - check that progress updates

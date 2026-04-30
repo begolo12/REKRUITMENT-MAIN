@@ -79,7 +79,6 @@ export default function Layout() {
         onMouseLeave={() => setHovered(false)}
         role="navigation"
         aria-label="Menu navigasi"
-        aria-hidden={!mobOpen}
       >
         <div className="sb-brand">
           <div className="sb-logo" aria-hidden="true">

@@ -7,10 +7,10 @@
 const XLSX = require('xlsx');
 
 const files = [
-  { file: 'RECRUITMENT OPERASI - 28 APRIL 2026 - WAHYU M. PUNGKI.xlsx', pd: 'wahyu' },
-  { file: 'HASIL RECRUITMENT REKRUITMENT URIP.xlsx', pd: 'urip' },
-  { file: 'REKRUITMEN - ANGGY.xlsx', pd: 'anggy' },
-  { file: 'HASIL REKRUITMENT - MUCHLIS ARIF.xlsx', pd: 'muchlis' },
+  { file: 'excel/RECRUITMENT_OPERASI_WAHYU.xlsx', pd: 'wahyu' },
+  { file: 'excel/HASIL_RECRUITMENT_URIP.xlsx', pd: 'urip' },
+  { file: 'excel/REKRUITMEN_ANGGY.xlsx', pd: 'anggy' },
+  { file: 'excel/HASIL_REKRUITMENT_MUCHLIS_ARIF.xlsx', pd: 'muchlis' },
 ];
 
 const SKIP_KODES = ['C100', 'D100']; // Section headers, not questions
